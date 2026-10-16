@@ -111,7 +111,12 @@ directory first in `PATH`.
 
 - **Portability:** the code runs on bash 4.2 or newer, on Linux and on macOS
   (with Homebrew). No GNU-only options outside the tests. Linux-only paths
-  (`/proc`, `setsid`) need a fallback.
+  (`/proc`, `setsid`) need a fallback, defined on every platform so the tests
+  run it on Linux too (e.g. `opmexec::localq::pstart_into_ps`).
+- **Functions that set the caller's variable** (`printf -v "$1"`, the
+  `..._into VAR` helpers) prefix their locals with their own name, e.g.
+  `_pstart_start`: `printf -v` writes the innermost variable of that name, so
+  a local named like the caller's variable silently swallows the value.
 - **Library side effects:** the library must not change the shell's options
   (no `set -o pipefail`) or traps outside workflow mode.
 - **Output:** stdout carries data (job IDs, listings). Messages go to stderr

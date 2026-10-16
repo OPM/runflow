@@ -222,6 +222,48 @@ test_localq_time_limit_not_reached() {
   assert_contains "$OUT" "completed successfully"
 }
 
+test_localq_start_time_variants_store_the_value() {
+  local start
+  require_cmd ps
+  source "$ROOT/lib/common.sh"
+  source "$ROOT/lib/queue/localq.sh"
+  sleep 30 &
+  local pid=$!
+  # Each variant, through the wrapper that submit uses (macOS: ps); a
+  # local of the same name inside a variant once swallowed the value
+  for variant in ps proc; do
+    [[ $variant == proc && ! -d /proc/self ]] && continue
+    eval "opmexec::localq::pstart_into() { opmexec::localq::pstart_into_$variant \"\$@\"; }"
+    start=$(opmexec::localq::pstart "$pid")
+    [[ -n "$start" ]] || fail "$variant: no start time for a live process"
+    [[ "$(opmexec::localq::pstart "$pid")" == "$start" ]] || fail "$variant: start time not stable"
+  done
+  kill "$pid"; wait "$pid" 2> /dev/null
+  [[ -z "$(opmexec::localq::pstart "$pid")" ]] || fail "start time for an ended process"
+  return 0
+}
+
+test_localq_reaped_job_never_starts() {
+  require_localq
+  # B waits for A; B's runner is then reaped as dead (a wrong start time).
+  # When A completes, B must stay FAILED and never run.
+  run_script << 'EOF'
+a=$(@submit sleep 1)
+b=$(@submit --depends-on "$a" touch B.ran)
+d="$OPMEXEC_LOCALQ_DIR/${b#*:}"
+runner=$(cat "$d/pid")
+echo wrong > "$d/pstart"
+@wait "$b"
+echo "b-rc=$?"
+@wait "$a"
+while kill -0 "$runner" 2> /dev/null; do sleep 0.1; done
+echo "b-status=$(cat "$d/status")"
+EOF
+  assert_contains "$OUT" "b-rc=1"
+  assert_contains "$OUT" "b-status=FAILED"
+  [[ ! -e B.ran ]] || fail "a reaped job ran"
+}
+
 test_localq_time_formats() {
   local value expected
   source "$ROOT/lib/common.sh"

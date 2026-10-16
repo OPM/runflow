@@ -103,28 +103,34 @@ opmexec::localq::get() {
 }
 
 # Process start time into variable VAR; empty if not running.
+#   Usage: opmexec::localq::pstart_into VAR PID
 # Linux: clock ticks since boot from /proc (no fork). Elsewhere (macOS): ps
 # start time (1 s resolution; forks, which is why runners reap only every few
-# seconds).
+# seconds). Both variants exist everywhere, so the tests run the ps one on
+# Linux too; the choice is made once here, out of the reap loop.
+# Their locals are prefixed _pstart_: printf -v writes the innermost variable
+# of that name, so a local named like the caller's VAR would swallow the value.
+opmexec::localq::pstart_into_proc() {
+  local _pstart_stat="" _pstart_fields
+  { read -r _pstart_stat || true; } 2> /dev/null < "/proc/$2/stat"
+  _pstart_fields=(${_pstart_stat##*) })
+  printf -v "$1" '%s' "${_pstart_fields[19]:-}"
+}
+opmexec::localq::pstart_into_ps() {
+  local _pstart_start
+  _pstart_start=$(ps -o lstart= -p "$2" 2> /dev/null)
+  printf -v "$1" '%s' "${_pstart_start// /_}"
+}
 if [[ -d /proc/self ]]; then
-  opmexec::localq::pstart_into() {
-    local _stat="" _fields
-    { read -r _stat || true; } 2> /dev/null < "/proc/$2/stat"
-    _fields=(${_stat##*) })
-    printf -v "$1" '%s' "${_fields[19]:-}"
-  }
+  opmexec::localq::pstart_into() { opmexec::localq::pstart_into_proc "$@"; }
 else
-  opmexec::localq::pstart_into() {
-    local _start
-    _start=$(ps -o lstart= -p "$2" 2> /dev/null)
-    printf -v "$1" '%s' "${_start// /_}"
-  }
+  opmexec::localq::pstart_into() { opmexec::localq::pstart_into_ps "$@"; }
 fi
 
 opmexec::localq::pstart() {
-  local _start
-  opmexec::localq::pstart_into _start "$1"
-  echo "$_start"
+  local start
+  opmexec::localq::pstart_into start "$1"
+  echo "$start"
 }
 
 # Run a command in a new session, keeping its pid (for $!). setsid is not
@@ -201,7 +207,12 @@ opmexec::localq::dep_state() {
 opmexec::localq::try_start() {
   local id="$1" dir="$OPMEXEC_LOCALQ_DIR/$1"
   local np slots used=0 f other odir status onp dep now
-  
+
+  # Only a pending job starts: one already finished (reaped as FAILED,
+  # CANCELLED) never runs, whatever its runner still does
+  opmexec::localq::read status "$dir" status
+  [[ "$status" == PENDING ]] || return 2
+
   opmexec::localq::dep_state dep "$dir"
   case "$dep" in
     failed) opmexec::localq::finish "$dir" FAILED; return 2 ;;
