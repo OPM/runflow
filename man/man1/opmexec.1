@@ -1,0 +1,687 @@
+.TH OPMEXEC 1 "2026-10-16" "opmexec" "User Commands"
+.nh
+.SH NAME
+opmexec \- the execution environment for OPM: run Flow and its tools, locally or through a scheduler
+.SH SYNOPSIS
+.SY opmexec
+.RI [ OPTION ]...\& " SCRIPT " [ ARG ]...
+.SY opmexec
+.RI [ OPTION ]...\&
+.B \-c
+.IR COMMAND " [" ARG ]...
+.SY opmexec
+.RI [ OPTION ]...\&
+.B \-\-shell
+.SY opmexec
+.RI [ OPTION ]...\&
+.BR \-\-jobs [ =all ]
+.YS
+.SH DESCRIPTION
+.B opmexec
+is the execution environment for OPM (Open Porous Media).
+It runs Flow, Flow's Python and other programs the same way on a workstation and on a cluster: it finds the installed Flow versions and the Python each one needs, and starts MPI runs with the launcher of the scheduler in use.
+.PP
+It runs
+.I SCRIPT
+with bash, with its
+.IR ARG s
+as
+.BR $1 ,
+.BR $2 ,
+\&..., or, with
+.BR \-c ,
+a single
+.IR COMMAND .
+Both use
+.IR directives ,
+bash functions whose names start with
+.BR @ :
+.TP 12
+.B @flow
+run Flow (one process)
+.TP
+.B @flowpy
+run the Python of a Flow version, with its opm bindings
+.TP
+.B @mpi
+run a program, or
+.BR @flow ,
+with MPI
+.TP
+.B @submit
+queue a command or directive as a job
+.TP
+.BR @wait ", " @cancel
+wait for or cancel jobs
+.TP
+.B @help
+list the directives, or show the options of one
+.PP
+Directives compose:
+.B "@submit \-n 16 @mpi @flow CASE.DATA"
+queues a job that runs Flow on 16 MPI ranks.
+Only
+.B @submit
+uses a scheduler: the built-in local queue
+.BR localq ;
+LSF, SLURM and PBS are planned
+.RB ( \-\-dry\-run
+shows what a workflow would submit to them).
+.PP
+Options given to
+.B opmexec
+are defaults for every directive in the script; options on a directive override or add to them.
+For example, with this
+.IR run.sh :
+.PP
+.EX
+#!/usr/bin/env bash
+@mpi @flow "$1" && @flowpy summary.py FOPR "$1"
+.EE
+.PP
+.B "opmexec \-n 8 \-\-flow\-version 2025.04 run.sh CASE.DATA"
+runs
+.I CASE.DATA
+with Flow 2025.04 on 8 MPI ranks, then reads its oil production.
+.SH OPTIONS
+.TP
+.BR \-c ", " \-\-command
+Run the remaining arguments as a command.
+.TP
+.BR \-n ", " \-\-np " \fIN\fR"
+Default number of processes (default 1).
+.TP
+.BR \-q ", " \-\-queue " \fIQ\fR"
+Default queue (default: see
+.BR CONFIGURATION ).
+.TP
+.BR \-s ", " \-\-scheduler " \fIS\fR"
+.B auto
+(default) or
+.BR localq ;
+.BR lsf ,
+.B slurm
+and
+.B pbs
+are planned:
+.B \-\-dry\-run
+only.
+.TP
+.BR \-\-depends\-on " \fIID\fR[,\fIID\fR]..."
+Make every submitted job wait for these jobs.
+Repeatable.
+.TP
+.BR \-\-localq\-options ", " \-\-lsf\-options ", " \-\-slurm\-options ", " \-\-pbs\-options " \fIOPTS\fR"
+Native options for every job sent to that scheduler (see
+.BR "OPTION LAYERS" ).
+.TP
+.BI \-\- DIRECTIVE \-options " OPTS"
+Options for every invocation of a directive, e.g.
+.BR \-\-flow\-options ,
+.BR \-\-mpi\-options .
+.TP
+.BI \-\- SETTING " VALUE"
+A setting of a directive, e.g.
+.BI \-\-flow\-version " VERSION"\fR:\fP
+the Flow version for every
+.B @flow
+without
+.BR \-v .
+.BI "@" NAME " \-\-help"
+shows a directive's settings.
+.TP
+.BI \-\-directives " PATH"
+Load extension directives from a directory or file.
+.TP
+.B \-\-dry\-run
+Run the workflow, but submit, wait for, cancel and run nothing (see
+.BR "DRY RUN" ).
+.TP
+.B \-\-shell
+Start an interactive bash with the directives (see
+.BR "INTERACTIVE USE" ).
+.TP
+.BR \-\-jobs [ =all ]
+List pending and running jobs (with
+.BR all ,
+also finished ones), then exit.
+.TP
+.B \-\-library
+Print the path of the library and exit (first argument only).
+.TP
+.BR \-h ", " \-\-help
+Show help.
+.SH DIRECTIVES
+.BI "@help @" NAME
+shows a directive's options; so does
+.BI @ NAME " \-\-help\fR,\fP"
+except for
+.B @flow
+and
+.BR @flowpy ,
+which pass
+.B \-\-help
+on to Flow and Python.
+.SS @flow
+.B @flow
+.RB [ \-v
+.IR VERSION ]
+.RI [ FLOW_ARGUMENT ]...
+.br
+.B "@flow \-l"
+.RI [ VERSION ]
+.br
+.B "@flow \-w"
+.RI [ VERSION ]
+.PP
+Runs one Flow process (with MPI:
+.BR "@mpi @flow" ),
+with its arguments as for
+.B flow
+itself, and returns its exit status:
+.BR "@flow CASE.DATA" ,
+.BR "@flow \-\-threads\-per\-process=4 CASE.DATA" ,
+.BR "@flow \-\-version" ,
+.BR "@flow \-\-help" .
+Decks (arguments naming a
+.I .DATA
+file) are made absolute.
+It first reports which Flow runs, e.g.
+.BR "[INFO] @flow: flow dev: /opt/opm/dev/bin/flow (OPM 2027.04)" ,
+so job logs record it.
+Only these options are
+.BR @flow 's
+own (Flow uses none of them);
+.B \-\-
+passes even them on:
+.TP 4
+.BR \-v ", " \-\-flow\-version
+The Flow to run, the first that applies: a path; a name in
+.BR OPMEXEC_FLOW_VERSIONS ;
+an executable
+.BI flow VERSION
+or
+.I VERSION
+in
+.B OPMEXEC_FLOW_BIN_PATHS
+(by default
+.BR PATH );
+an OPM version, e.g.
+.BR 2025.04 ,
+if exactly one build reports it.
+Only OPM Flow is used, never another program named flow.
+Default:
+.BR \-\-flow\-version ,
+else
+.BR OPMEXEC_FLOW_VERSION .
+.TP
+.BR \-l ", " \-\-list
+List the Flow versions: OPM version, git hash
+.RB ( *
+marks local changes), build type, build time and Python;
+.B *
+before a name marks the default.
+.B "@flow \-l"
+.I VERSION
+shows everything about one, including its MPI library and build ID.
+.TP
+.BR \-w ", " \-\-which
+Print the executable of a version (default: the default), e.g.
+.BR "ldd \(dq$(@flow \-w)\(dq" .
+.PP
+.BR \-\-flow\-options
+are added before the call's arguments.
+If Flow embeds Python (for PYACTION),
+.B PYTHONPATH
+is set to its opm bindings.
+How versions, builds and their Python are found: docs/FLOW.md.
+.SS @flowpy
+.B @flowpy
+.RB [ \-v
+.IR VERSION ]
+.RI [ PYTHON_ARGUMENT ]...
+.IR SCRIPT | \fB\-c\fP\ CODE | \fB\-m\fP\ MODULE
+.RI [ ARG ]...
+.PP
+Runs the Python a Flow version's opm bindings
+.RB ( opm.io ,
+.BR opm.simulators )
+were built for, with the bindings in
+.BR PYTHONPATH ,
+e.g. to prepare decks or read results.
+.B \-v
+works as for
+.BR @flow ;
+its default is
+.BR \-\-flowpy\-version ,
+else
+.BR \-\-flow\-version .
+Everything else, including
+.B \-\-help
+and
+.BR \-\-version ,
+goes to Python, after
+.BR \-\-flowpy\-options ;
+.B \-\-
+passes even
+.B \-v
+on.
+It first reports, on standard error, which Python runs, e.g.
+.BR "[INFO] @flowpy: flow dev: /usr/bin/python3.13; python 3.13 (from bindings), ..." ,
+so job logs record it; standard output stays Python's.
+.PP
+The Python version comes from
+.BR OPMEXEC_FLOW_PYTHON_MAP ,
+else from the bindings found next to Flow, else from the libpython Flow embeds; a different Python is never used.
+.SS @mpi
+.B @mpi
+.RB [ \-n
+.IR NP ]
+.RB [ \-o
+.IR LAUNCHER_OPTIONS ]
+.IR PROGRAM | @flow | @flowpy
+.RI [ ARG ]...
+.PP
+Runs a program, or
+.BR @flow ,
+with
+.I NP
+MPI ranks (default
+.BR "opmexec \-n" ;
+in a job, the job's
+.BR \-n ).
+The launcher is
+.B OPMEXEC_MPI_LAUNCHER_LOCAL
+on this machine and in localq jobs,
+.BI OPMEXEC_MPI_LAUNCHER_ SCHEDULER
+in jobs of other schedulers; then come
+.B \-\-mpi\-options
+and
+.BR \-o .
+.SS @submit
+.B @submit
+.RB [ \-n
+.IR NP ]
+.RB [ \-q
+.IR QUEUE ]
+.RB [ \-\-scheduler
+.IR S ]
+.RB [ \-\-depends\-on
+.IR ID [, ID ]...]
+.RB [ \-\- \fISCHEDULER\fB\-options
+.IR OPTS ]...
+.RB [ \-o
+.IR OUTPUT ]
+.RB [ \-\- ]
+.I COMMAND
+.RI [ ARG ]...
+.PP
+Queues
+.IR COMMAND ,
+a program or a directive, as a job with
+.I NP
+tasks and prints its job ID, e.g.
+.BR localq:12 .
+The job runs in the directory it was submitted from;
+.B \-o
+names its output file (default: a per-job log, see
+.BR FILES ).
+.B \-\-depends\-on
+starts it only after these jobs completed, and never if one failed.
+.BR \-\-localq\-options ,
+.BR \-\-lsf\-options ,
+.B \-\-slurm\-options
+and
+.B \-\-pbs\-options
+are used only when the job goes to that scheduler.
+Put
+.B \-\-
+before a command that starts with
+.BR \- .
+.SS @wait
+.B @wait
+.RI [ ID ]...
+.br
+.B @wait
+.I @DIRECTIVE
+.RI [ ARG ]...
+.PP
+Waits for the listed jobs, or for all jobs of this run, and returns 1 if any did not complete.
+With a directive, e.g.
+.BR "@wait @submit @flow CASE.DATA" ,
+runs it and waits for the jobs it submits; its output passes through, so
+.B job=$(@wait @submit ...)
+works.
+There is no time limit unless
+.B OPMEXEC_WAIT_TIMEOUT
+is set; the job keeps running when it expires.
+.SS @cancel
+.B @cancel
+.RI [ ID ]...
+.br
+.B "@cancel \-\-all"
+.PP
+Cancels the listed jobs, or with
+.B \-\-all
+this run's pending and running jobs (in a script, also without arguments).
+Returns 1 if a job could not be cancelled, e.g. because it already finished.
+.SS @help
+.B @help
+.RI [ @DIRECTIVE ]
+.PP
+Lists the loaded directives, or shows one directive's usage, options and settings, with a command that opens this page there.
+.SH "OPTION LAYERS"
+.B Native options
+go to the scheduler: localq takes
+.BI \-\-time= LIMIT
+.RI ( MINUTES ", " HH : MM : SS ", " DAYS \- HH ...),
+.BR \-\-nice [= \fIN\fP],
+.BI \-\-job\-name= NAME
+and
+.BR \-\-exclusive ;
+the planned backends will pass theirs to
+.BR bsub ,
+.B sbatch
+or
+.BR qsub .
+A job gets only those of its own scheduler, so one workflow can carry options for several.
+.PP
+.B Directive options
+.RB ( \-\-flow\-options ,
+.BR \-\-mpi\-options ,
+\&...) apply to every invocation of a directive, before the call's own.
+.PP
+Both add up:
+.BI OPMEXEC_ NAME _OPTIONS
+in the configuration, then
+.BI "opmexec \-\-" NAME \-options\fR,\fP
+then the call's options.
+Option strings are split like a shell command line, without expanding anything:
+.B \-o \(dq\-\-a=\(aqx y\(aq \-\-b=2\(dq
+passes
+.B "\-\-a=x y"
+and
+.BR \-\-b=2 .
+.SH INVOCATION
+.B "opmexec SCRIPT"
+runs
+.I SCRIPT
+in opmexec's bash (it need not be executable):
+.B $0
+is
+.BR opmexec ,
+the script's path is
+.BR ${BASH_SOURCE[0]} ,
+and variables, loops and
+.B job=$(@submit ...)
+work as in any bash script.
+The exit status is the script's own.
+An unknown directive stops it (exit status 127) with a suggestion, e.g.
+.BR "Unknown directive: @flwo (did you mean @flow?)" .
+On exit and on HUP, INT, PIPE or TERM the run's job list is removed; jobs already submitted keep running.
+A script with its own EXIT trap must call
+.B opmexec::workflow_exit
+from it.
+.SH SCHEDULERS
+With
+.BR auto ,
+.B opmexec
+uses localq; the planned backends will be chosen when their commands
+.RB ( bsub ,
+.BR sinfo ,
+.BR qstat )
+are in
+.BR PATH .
+Job IDs name their scheduler
+.RB ( localq:12 ),
+and a bare ID belongs to the current one; a job can depend only on jobs of its own scheduler.
+.SS localq
+A queue for one machine and user, without a daemon.
+A job uses
+.B \-n
+of
+.B OPMEXEC_LOCALQ_SLOTS
+slots (default: the number of CPUs); jobs start first in, first out among those whose dependencies are met, and a job that does not fit waits.
+A job whose process dies is FAILED; cancelling kills its process group;
+.B @wait
+waits without polling.
+Its state is kept on local disk (see
+.BR FILES ),
+so job IDs are local to the machine.
+Slots are not enforced: more threads than slots oversubscribe the machine.
+.PP
+.EX
+$ opmexec \-\-jobs
+localq: slots 3/96 in use
+ID     STATUS      NP QUEUE    NAME       DEPENDS EXIT   ELAPSED  COMMAND
+13     RUNNING      3 normal   base       \-              0:00:01  @mpi @flow A.DATA
+14     PENDING      1 normal   \-          13                   \-  @flowpy compare.py
+.EE
+.SH ENSEMBLES
+Many concurrent runs, e.g. a history matching iteration
+.RI ( examples/6_history_match.sh ),
+are one job each: the scheduler packs them.
+On sites where many small jobs are costly, localq can run them inside one allocation (a pilot job), e.g. with SLURM:
+.PP
+.EX
+#!/usr/bin/env bash
+#SBATCH \-\-ntasks=64 \-\-time=24:00:00
+export OPMEXEC_SCHEDULER=localq OPMEXEC_LOCALQ_SLOTS=$SLURM_NTASKS
+export OPMEXEC_LOCALQ_DIR=/var/tmp/opmexec\-$(id \-u)/$SLURM_JOB_ID
+export OPMEXEC_MPI_LAUNCHER_LOCALQ=\(aqsrun \-\-exact \-\-ntasks={np}\(aq
+opmexec examples/6_history_match.sh
+.EE
+.PP
+Without
+.BR \-\-exact ,
+each
+.B srun
+claims the whole allocation and the runs execute one after another.
+.SH "DRY RUN"
+.B \-\-dry\-run
+runs the workflow but submits, waits for, cancels and runs nothing: it prints each job with a fake ID, checks the directive each job would run (options, deck, Flow version, launcher) and reports problems as warnings, and ends with the number of jobs.
+It works for the planned schedulers too.
+Plain commands in the script still run; scripts can test
+.BR $OPMEXEC_DRY_RUN .
+.SH "INTERACTIVE USE"
+.B "opmexec \-\-shell"
+.RI [ OPTION ]...
+starts a bash with your
+.IR ~/.bashrc ,
+the directives and the options applied;
+.B exit
+leaves it.
+In a running bash,
+.B "source opmexec.bash"
+.RI [ OPTION ]...
+does the same in place.
+.PP
+.EX
+(opmexec localq 2025.04) $ job=$(@submit \-n 8 @mpi @flow CASE.DATA)
+(opmexec localq 2025.04) $ @flowpy \-c \(aqimport opm.io\(aq
+[opmexec] Job localq:12 completed
+.EE
+.PP
+The prompt shows the scheduler and the Flow version
+.RB ( OPMEXEC_PROMPT=false :
+not); Tab completes directives, their options, Flow versions, decks and job IDs; finished jobs are reported before the prompt
+.RB ( OPMEXEC_NOTIFY ,
+.BR OPMEXEC_NOTIFY_INTERVAL ).
+Nothing closes the shell and no traps are set;
+.B @cancel
+needs job IDs or
+.BR \-\-all .
+.SH "LIBRARY USE"
+A script can load the directives itself, to run also as
+.BR ./run.sh :
+.PP
+.EX
+#!/usr/bin/env bash
+source opmexec.bash || exit 1
+opmexec::setup \-n 8 \-\-flow\-version 2025.04 || exit 1
+@mpi @flow "$1"
+.EE
+.PP
+bash finds
+.I opmexec.bash
+through
+.BR PATH ,
+next to
+.BR opmexec ;
+without
+.B PATH
+lookup:
+.BR "source \(dq$(opmexec \-\-library)\(dq" .
+.B opmexec::setup
+takes the options of
+.B opmexec
+(not
+.BR \-c ,
+.BR \-\-jobs ,
+.BR \-h ).
+The script then runs as described in
+.BR INVOCATION ,
+under
+.B opmexec
+too.
+.SH CONFIGURATION
+Settings come from, later winning: built-in defaults; the files
+.IR /etc/opmexec/opmexec.conf ,
+.I etc/opmexec.conf
+in the opmexec directory and
+.I ~/.config/opmexec/opmexec.conf
+(or only
+.B OPMEXEC_CONFIG
+if set); the environment; opmexec's options; the directive's options.
+Options add to
+.BI OPMEXEC_ NAME _OPTIONS\fR;\fP
+everything else is replaced.
+The files are bash assignments; a world-writable one is refused.
+.I etc/opmexec.conf.example
+lists every setting with its default and an explanation.
+The main ones:
+.TP
+.B OPMEXEC_FLOW_VERSIONS
+Named Flow versions, for builds that share an executable name, as
+.IB NAME = PATH
+items (the executable or its directory), e.g.
+.RS
+.EX
+OPMEXEC_FLOW_VERSIONS=(\(aq2025.04=/opt/opm/2025.04/bin/flow\(aq
+                       \(aqdev=~/opm/build/bin\(aq)
+.EE
+.RE
+.TP
+.B OPMEXEC_FLOW_BIN_PATHS
+Directories searched for Flow, in order; the entry
+.B PATH
+(the default) is
+.B PATH
+when Flow is looked up, in a job after
+.BR OPMEXEC_JOB_SETUP .
+.TP
+.BR OPMEXEC_FLOW_VERSION ", " OPMEXEC_FLOWPY_VERSION
+The version of
+.B @flow
+and of
+.B @flowpy
+without
+.B \-v
+(default
+.BR flow ;
+empty: the same).
+.TP
+.BR OPMEXEC_FLOW_PYTHONPATH ", " OPMEXEC_FLOW_PYTHON_MAP
+Where a version's opm bindings are
+.RB ( auto ,
+a template with
+.BR {version} ,
+.BR {python} ,
+.BR {prefix} ,
+or empty), and Python versions per version pattern (e.g.
+.BR "(\(aqflow2025*:3.12\(aq)" ).
+.TP
+.BI OPMEXEC_MPI_LAUNCHER_ SCHEDULER\fR,\fP " OPMEXEC_MPI_LAUNCHER_LOCAL"
+MPI launcher, with
+.B {np}
+for the ranks (default
+.BR "mpirun \-np {np}" ;
+SLURM:
+.BR "srun \-\-ntasks={np}" ).
+Binding is the MPI library's default; several runs side by side on one machine need it off, e.g.
+.BR "mpirun \-np {np} \-\-bind\-to none" .
+.TP
+.B OPMEXEC_JOB_SETUP
+Shell commands run at the start of every job, e.g. module loads.
+.TP
+.BI OPMEXEC_DEFAULT_QUEUE_ SCHEDULER\fR,\fP " OPMEXEC_LOCALQ_SLOTS"
+Default queues, and localq's slots.
+.SH ENVIRONMENT
+Every setting can also be set in the environment, and:
+.TP
+.B OPMEXEC_CONFIG
+The only configuration file to read.
+.TP
+.B OPMEXEC_DEBUG=true
+Print debug messages.
+.PP
+Workflow scripts share the shell with
+.BR opmexec ,
+so they must not define names starting with
+.BR @ ,
+.B opmexec::
+or
+.BR OPMEXEC_ .
+.SH FILES
+.TP
+.I ~/.config/opmexec/opmexec.conf
+Your configuration; also
+.I /etc/opmexec/opmexec.conf
+and
+.I etc/opmexec.conf
+in the opmexec directory.
+.TP
+.I ~/.config/opmexec/directives/
+Your extension directives.
+.TP
+.IR ~/.local/state/opmexec/logs/localq. HOST . ID .log
+The output of a localq job without
+.BR \-o .
+.TP
+.IR /var/tmp/opmexec\- UID /localq/
+localq's state: a private directory on local disk.
+.SH "EXIT STATUS"
+The script's or command's own; 1 for usage and configuration errors; 127 for an unknown directive; 129, 130, 141 or 143 when stopped by HUP, INT, PIPE or TERM.
+.SH EXAMPLES
+.EX
+opmexec \-n 4 \-c @mpi @flow CASE.DATA            # Flow here, on 4 ranks
+opmexec \-c @wait @submit \-n 8 @mpi @flow CASE.DATA # a job, waiting for it
+opmexec \-\-dry\-run \-s slurm workflow.sh            # what it would submit
+.EE
+.PP
+A workflow with two concurrent runs and a comparison that waits for both:
+.PP
+.EX
+a=$(@submit @mpi @flow CASE_A.DATA)
+b=$(@submit @mpi @flow CASE_B.DATA)
+@submit \-\-depends\-on "$a,$b" @flowpy summary.py FOPR CASE_A CASE_B
+@wait
+.EE
+.PP
+More, in order of the concepts they introduce, in
+.I examples/
+(see its README.md): a local MPI run and its results, two Flow versions, many jobs at once, dependencies and restarts, MPI jobs, and an ES-MDA loop.
+.SH REQUIREMENTS
+bash 4.2 or newer, coreutils, util-linux and procps; Flow, and an MPI launcher for
+.BR @mpi .
+On macOS:
+.BR "brew install bash flock" ,
+with Homebrew's
+.I bin
+first in
+.BR PATH .
+Missing tools are reported at startup.
+.SH "SEE ALSO"
+.BR mpirun (1),
+.BR flock (1).
+In the opmexec directory: docs/FLOW.md (finding Flow and its Python), docs/DIRECTIVES.md (writing directives), docs/BACKENDS.md (scheduler backends, running on clusters), docs/DEVELOPMENT.md (layout and tests).

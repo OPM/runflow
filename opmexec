@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# opmexec - the execution environment for OPM: run a workflow script or a
+# single command with the opmexec directives. Scripts can also load them with:
+# source opmexec.bash
+
+# opmexec --library: the library's path, for source "$(opmexec --library)";
+# answered before anything is loaded
+if [[ "${1:-}" == --library ]]; then
+  echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/opmexec.sh"
+  exit 0
+fi
+
+_OPMEXEC_CLI=true  # workflow mode is turned on below, after the options
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/opmexec.sh" || exit 1
+
+opmexec::cli_help() {
+  cat << 'HELP_EOF'
+opmexec - the execution environment for OPM (Open Porous Media)
+
+Usage: opmexec [OPTIONS] script [args...]
+       opmexec [OPTIONS] -c command [args...]
+       opmexec [OPTIONS] --shell
+       opmexec [OPTIONS] --jobs[=all]
+
+Runs a bash script, with its arguments as $1, $2, ..., or with -c a single
+command; both use the directives below. Options are defaults for every
+directive.
+
+Directives (scripts and commands run locally; only @submit uses the scheduler;
+@help @NAME shows a directive's options, its --NAME-options and settings):
+HELP_EOF
+  opmexec::directive_help
+  cat << 'HELP_EOF'
+
+OPTIONS:
+  -c, --command             Run the remaining arguments as a command
+  -n, --np PROCESSES        Default number of processes (default: 1)
+  -q, --queue QUEUE         Default queue name (default: the scheduler's default)
+  -s, --scheduler NAME      Scheduler: auto (default) or localq; lsf, slurm and
+                            pbs are planned (--dry-run only in this release)
+  --depends-on JOBID[,...]  Make submitted jobs wait until these jobs complete
+                            (repeatable; all must complete successfully)
+  --localq-options OPTS     Native options for every job of that scheduler:
+  --lsf-options OPTS        localq takes --time, --nice, --job-name and
+  --slurm-options OPTS      --exclusive; the others pass theirs to bsub, sbatch
+  --pbs-options OPTS        or qsub (planned); ignored for jobs sent elsewhere
+  --<directive>-options OPTS  Options for every invocation of a directive, e.g.
+                            --flow-options, --mpi-options (@help @NAME)
+  --directives PATH         Load extension directives from a directory or file
+  --<setting> VALUE         Settings of directives, e.g. --flow-version (@help @NAME)
+  --dry-run                 Check the workflow and print the jobs it would
+                            submit; submits, waits for and runs nothing
+  --shell                   Start an interactive bash with the directives, the
+                            options applied, Tab completion and job notices
+  --jobs[=all]              List pending/running jobs (all: include finished)
+  --library                 Print the library's path (source "$(opmexec --library)");
+                            must be the first argument
+  -h, --help                Show this help message
+
+Options given to @submit (-n, -q, --scheduler, --depends-on,
+--<scheduler>-options, -o OUTPUT) override or add to opmexec's.
+Option strings use shell quoting: -o "--a='x y' --b=2".
+
+EXAMPLES:
+  opmexec -n 4 -c @mpi @flow CASE.DATA         # Flow here, on 4 MPI ranks
+  opmexec -c @wait @submit @flow CASE.DATA     # as a job of the local queue
+  opmexec --flow-version 2025.04 workflow.sh   # a workflow, with that Flow
+  opmexec --dry-run -s slurm workflow.sh       # the jobs it would submit
+  opmexec --jobs                               # the local queue's jobs
+  opmexec -c @flow -l                          # the Flow versions found
+  opmexec --shell                              # an interactive shell
+
+Scripts can also load the directives themselves, to run without opmexec:
+  source opmexec.bash; opmexec::setup [OPTIONS]
+
+HELP_EOF
+  echo "Full reference: $(opmexec::man_command)"
+  echo
+}
+
+# Parse the command line and set up the run: handles --help/--jobs and errors,
+# applies the workflow options (opmexec::setup_option), and leaves the mode
+# (command or script) in _OPMEXEC_MODE and the command or script with its
+# arguments in _OPMEXEC_ARGS
+opmexec::cli_main() {
+  local command_mode=false jobs="" shell=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -c|--command)
+        command_mode=true
+        shift
+        break
+        ;;
+      --jobs)
+        jobs=active
+        shift
+        ;;
+      --jobs=all)
+        jobs=all
+        shift
+        ;;
+      --shell)
+        shell=true
+        shift
+        ;;
+      -h|--help)
+        opmexec::cli_help
+        exit 0
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        opmexec::setup_option "$@" || exit 1
+        if [[ "$_OPMEXEC_SHIFT" -gt 0 ]]; then
+          shift "$_OPMEXEC_SHIFT"
+        elif [[ "$1" == -* ]]; then
+          opmexec::error "Unknown option: $1 (opmexec -h for help)"
+          exit 1
+        else
+          break
+        fi
+        ;;
+    esac
+  done
+
+  # An interactive bash with the directives; the options were applied above
+  # and reach it as exported settings
+  if $shell; then
+    if [[ $# -gt 0 || "$command_mode" == true || -n "$jobs" ]]; then
+      opmexec::error "--shell starts an interactive shell: no script, -c or --jobs"
+      exit 1
+    fi
+    exec "$BASH" --rcfile "$OPMEXEC_HOME/lib/shell_rc.sh" -i
+  fi
+
+  if [[ -n "$jobs" ]]; then
+    local scheduler
+    scheduler=$(opmexec::get_scheduler) || exit 1
+    opmexec::load_queue_backend "$scheduler" || exit 1
+    opmexec::backend_list_jobs "$jobs"
+    exit
+  fi
+
+  if [[ $# -eq 0 ]]; then
+    if [[ "$command_mode" == true ]]; then
+      opmexec::error "Command required after -c"
+    else
+      opmexec::error "Script or -c command required"
+    fi
+    opmexec::cli_help
+    exit 1
+  fi
+
+  if [[ "$command_mode" == true ]]; then
+    _OPMEXEC_MODE=command
+  elif [[ -f "$1" ]]; then
+    _OPMEXEC_MODE=script
+  else
+    opmexec::error "Script not found: $1"
+    exit 1
+  fi
+  _OPMEXEC_ARGS=("$@")
+}
+
+opmexec::cli_main "$@"
+set -- "${_OPMEXEC_ARGS[@]}"
+unset _OPMEXEC_ARGS
+
+opmexec::workflow_mode
+
+# Run the command or script here, at the top level rather than inside a
+# function, so that the workflow's variables are ordinary globals
+if [[ "$_OPMEXEC_MODE" == command ]]; then
+  "$@"
+else
+  # Shift the script off first: without arguments, source keeps the current
+  # positional parameters, and the script would see itself as $1
+  _OPMEXEC_SCRIPT=$1
+  shift
+  source "$_OPMEXEC_SCRIPT" "$@"
+fi
+exit

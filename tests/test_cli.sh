@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# CLI: modes, options and errors
+
+test_help_lists_directives_and_options() {
+  run "$OPMEXEC" -h
+  assert_rc 0
+  for word in @flow @mpi @wait @submit @cancel @help --dry-run --jobs --shell --slurm-options; do
+    assert_contains "$OUT" "$word"
+  done
+}
+
+test_unknown_option_fails() {
+  run "$OPMEXEC" --bogus
+  assert_rc 1
+  assert_contains "$OUT" "Unknown option: --bogus"
+}
+
+test_no_arguments_fails() {
+  run "$OPMEXEC"
+  assert_rc 1
+  assert_contains "$OUT" "Script or -c command required"
+}
+
+test_command_mode_requires_command() {
+  run "$OPMEXEC" -c
+  assert_rc 1
+  assert_contains "$OUT" "Command required after -c"
+}
+
+test_missing_script_fails() {
+  run "$OPMEXEC" nope.sh
+  assert_rc 1
+  assert_contains "$OUT" "Script not found: nope.sh"
+}
+
+test_script_mode_passes_arguments_and_exit_code() {
+  cat > workflow.sh << 'EOF'
+echo "args=$# [$1] [$2]"
+exit 3
+EOF
+  run "$OPMEXEC" workflow.sh one "two words"
+  assert_rc 3
+  assert_contains "$OUT" "args=2 [one] [two words]"
+}
+
+test_script_without_arguments_has_none() {
+  # source without arguments would keep opmexec's own: the script itself
+  echo 'echo "args=$# [${1:-}]"' > noargs.sh
+  run "$OPMEXEC" noargs.sh
+  assert_rc 0
+  assert_contains "$OUT" "args=0 []"
+}
+
+test_command_mode_runs_plain_commands() {
+  run "$OPMEXEC" -c echo hello
+  assert_rc 0
+  assert_eq "$OUT" "hello"
+}
+
+test_queue_options_become_defaults() {
+  run_script -n 8 -q gpu -s localq --depends-on 1 --depends-on 2 << 'EOF'
+echo "np=$OPMEXEC_NP queue=$OPMEXEC_QUEUE scheduler=$OPMEXEC_SCHEDULER deps=$OPMEXEC_DEPENDS_ON"
+EOF
+  assert_rc 0
+  assert_contains "$OUT" "np=8 queue=gpu scheduler=localq deps=1,2"
+}
+
+test_empty_depends_on_rejected() {
+  run "$OPMEXEC" --depends-on "" -c true
+  assert_rc 1
+  assert_contains "$OUT" "needs a job ID"
+}
+
+test_workflow_names_do_not_collide() {
+  # Common names in workflow scripts must not affect opmexec, and vice versa
+  run_script << 'EOF'
+error() { echo "user error: $*"; }
+info() { echo "user info: $*"; }
+main() { echo "user main"; }
+jobs=(a b)
+DEBUG=1
+SCHEDULER=nonsense
+@wait @submit true
+@wait "$TEST_SCHEDULER:999999"
+echo "jobs=${jobs[*]} DEBUG=$DEBUG SCHEDULER=$SCHEDULER"
+error "from the script"
+EOF
+  assert_contains "$OUT" "[INFO] Job $TEST_SCHEDULER:1 completed successfully"
+  assert_contains "$OUT" "[ERROR] Job $TEST_SCHEDULER:999999 not found"
+  assert_contains "$OUT" "jobs=a b DEBUG=1 SCHEDULER=nonsense"
+  assert_contains "$OUT" "user error: from the script"
+  assert_not_contains "$OUT" "user info"
+}
+
+test_auto_ignores_planned_schedulers() {
+  # A cluster's commands in PATH: their backends are planned, so localq
+  mkdir -p "$SANDBOX/cluster"
+  local cmd
+  for cmd in bsub sinfo qstat; do
+    printf '#!/bin/sh\nexit 0\n' > "$SANDBOX/cluster/$cmd"
+    chmod +x "$SANDBOX/cluster/$cmd"
+  done
+  PATH="$SANDBOX/cluster:$PATH" OPMEXEC_SCHEDULER=auto run "$OPMEXEC" -c @wait @submit true
+  assert_rc 0
+  assert_contains "$OUT" "Job localq:1 completed successfully"
+}
+
+test_planned_scheduler_works_in_dry_runs_only() {
+  run "$OPMEXEC" -s slurm -c @submit true
+  assert_rc 1
+  assert_contains "$OUT" "The SLURM backend is planned, not part of this release; --dry-run -s slurm shows the jobs"
+  run "$OPMEXEC" --dry-run -s slurm -c @submit true
+  assert_rc 0
+  assert_contains "$OUT" "submit slurm:dry1"
+  run "$OPMEXEC" -s nosuch -c @submit true
+  assert_rc 1
+  assert_contains "$OUT" "Unknown scheduler: nosuch"
+}
+
+test_options_without_value_fail() {
+  local call
+  for call in "@mpi -n" "@mpi -o" "@submit -q" "@submit --slurm-options" "@flow -v" "@flowpy -v"; do
+    # shellcheck disable=SC2086  # the call's words
+    run timeout 10 "$OPMEXEC" -c $call
+    assert_rc 1
+    assert_contains "$OUT" "option ${call#* } needs a value"
+  done
+  run "$OPMEXEC" -c @submit -n abc true
+  assert_rc 1
+  assert_contains "$OUT" "@submit: number of processes must be a positive integer (got: abc)"
+}
+
+test_auto_detection_falls_back_to_localq() {
+  local cmd
+  for cmd in bsub sinfo qstat; do
+    command -v "$cmd" > /dev/null && skip "$cmd found: a cluster scheduler is detected here"
+  done
+  OPMEXEC_SCHEDULER=auto run "$OPMEXEC" -c @wait @submit true
+  assert_rc 0
+  assert_contains "$OUT" "localq:1"
+  assert_contains "$OUT" "Job localq:1 completed successfully"
+  
+  OPMEXEC_SCHEDULER=auto run "$OPMEXEC" --jobs=all
+  assert_rc 0
+  assert_contains "$OUT" "localq: slots"
+}
+
+test_man_page_renders_without_warnings() {
+  require_cmd groff
+  run groff -man -ww -z "$ROOT/man/man1/opmexec.1"
+  assert_rc 0
+  assert_eq "$OUT" ""
+}

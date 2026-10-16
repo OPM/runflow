@@ -1,0 +1,126 @@
+# opmexec configuration template.
+#
+# Copy it to one of these files and uncomment what you change; they are read
+# in this order, later ones winning:
+#   /etc/opmexec/opmexec.conf                   machine-wide
+#   <opmexec directory>/etc/opmexec.conf         this installation (site)
+#   ~/.config/opmexec/opmexec.conf              this user ($XDG_CONFIG_HOME)
+# If OPMEXEC_CONFIG names a file, only that file is read. Settings in the
+# environment and opmexec's options win over all files (see opmexec(1),
+# CONFIGURATION). The files are bash; world-writable ones are refused.
+# The values shown are the built-in defaults.
+
+# --- Schedulers ---------------------------------------------------------------
+# auto: the local queue, localq. LSF, SLURM and PBS are planned: -s slurm
+# (lsf, pbs) works with --dry-run only in this release
+#OPMEXEC_SCHEDULER=auto
+
+# Default queue per scheduler; empty: the scheduler's own default
+#OPMEXEC_DEFAULT_QUEUE_LSF=''
+#OPMEXEC_DEFAULT_QUEUE_SLURM=''
+#OPMEXEC_DEFAULT_QUEUE_PBS=''
+#OPMEXEC_DEFAULT_QUEUE_LOCALQ=normal
+
+# Native options for every job of a scheduler, e.g. '--account=res'.
+# localq takes --time=LIMIT, --nice[=N], --job-name=NAME and --exclusive,
+# e.g. '--nice' to keep background runs from slowing down interactive work
+#OPMEXEC_LSF_OPTIONS=''
+#OPMEXEC_SLURM_OPTIONS=''
+#OPMEXEC_PBS_OPTIONS=''
+#OPMEXEC_LOCALQ_OPTIONS=''
+
+# localq slots; empty: the number of CPUs
+#OPMEXEC_LOCALQ_SLOTS=''
+
+# --- Flow ---------------------------------------------------------------------
+# Where Flow versions are searched (as flow<VERSION> or <VERSION>), in order,
+# and the version used without @flow -v. PATH stands for the directories of
+# $PATH when Flow is looked up (in jobs: after OPMEXEC_JOB_SETUP). The first
+# OPM Flow found wins; other programs named flow are skipped. E.g. site
+# versions first: (/opt/opm/bin PATH)
+#OPMEXEC_FLOW_BIN_PATHS=(PATH)
+#OPMEXEC_FLOW_VERSION=flow
+
+# Named Flow versions, for builds that share an executable name (e.g. one
+# install per version, or a build tree's Debug and Release): 'NAME=PATH' items,
+# PATH the executable or its directory (~/ for your home). @flow -v NAME uses
+# one; names win over the executable names above. Define them here rather
+# than in the environment: jobs read them from the configuration.
+#   OPMEXEC_FLOW_VERSIONS=('2025.04=/opt/opm/2025.04/bin/flow'
+#                          'dev=~/OPM/build/opm-simulators/bin/Release'
+#                          'dev-debug=~/OPM/build/opm-simulators/bin/Debug')
+#OPMEXEC_FLOW_VERSIONS=()
+
+# The Flow version whose Python @flowpy uses without -v; empty: the one
+# above. E.g. a build with Python bindings, while runs use another
+#OPMEXEC_FLOWPY_VERSION=''
+
+# Options for every @flow
+#OPMEXEC_FLOW_OPTIONS=''
+
+# Python of each Flow version: @flow sets PYTHONPATH to its opm bindings when
+# Flow embeds Python (PYACTION); @flowpy runs the Python they were built for.
+# OPMEXEC_FLOW_PYTHONPATH: where the bindings are.
+#   auto   found next to Flow: <prefix>/lib/python3.X/site-packages for
+#          <prefix>/bin/flow, or the python/ directories of a build tree
+#   a template ({version}, {python}, {prefix} are replaced), e.g.
+#          '/opt/opm/{version}/lib/python{python}/site-packages'
+#   ''     none: PYTHONPATH is left unchanged
+# OPMEXEC_FLOW_PYTHON_MAP: Python version per version pattern; wins over
+# detection (the bindings' module name, or the libpython Flow is linked
+# against), e.g. ('flow2024*:3.11' 'flow2025*:3.12')
+#OPMEXEC_FLOW_PYTHONPATH=auto
+#OPMEXEC_FLOW_PYTHON_MAP=()
+
+# --- MPI ----------------------------------------------------------------------
+# Launcher for @mpi outside jobs (LOCAL) and inside jobs of each scheduler;
+# {np} is replaced by the number of ranks; empty: LOCAL.
+#
+# Process binding is left to the MPI library's defaults; set what suits the
+# machine. Every mpirun binds from the first core, so runs started side by
+# side on one machine (e.g. several localq jobs) share the same cores unless
+# binding is off. Open MPI examples (MPICH: -bind-to; Intel MPI: I_MPI_PIN):
+#   'mpirun -np {np} --bind-to none'                      runs side by side
+#   'mpirun -np {np} --map-by ppr:1:l3cache --bind-to l3cache'
+#                                       one rank per chiplet (L3), e.g. AMD EPYC
+#OPMEXEC_MPI_LAUNCHER_LOCAL='mpirun -np {np}'
+#OPMEXEC_MPI_LAUNCHER_LOCALQ=''
+#OPMEXEC_MPI_LAUNCHER_LSF='mpirun -np {np}'
+#OPMEXEC_MPI_LAUNCHER_SLURM='srun --ntasks={np}'
+#OPMEXEC_MPI_LAUNCHER_PBS='mpirun -np {np}'
+
+# Launcher options for every @mpi
+#OPMEXEC_MPI_OPTIONS=''
+
+# --- Jobs ---------------------------------------------------------------------
+# Shell commands run at the start of every job; the job fails if they do,
+# e.g. 'source /etc/profile.d/modules.sh && module load openmpi opm'
+#OPMEXEC_JOB_SETUP=''
+
+# --- Waiting for jobs -----------------------------------------------------------
+# @wait's time limit in seconds (0: none; the job keeps running when it
+# expires); seconds between status checks of schedulers that are polled;
+# localq: seconds between scheduling checks, and between checks for dead runners
+#OPMEXEC_WAIT_TIMEOUT=0
+#OPMEXEC_POLL=1
+#OPMEXEC_LOCALQ_POLL=1
+#OPMEXEC_LOCALQ_REAP_INTERVAL=5
+
+# --- Interactive shells --------------------------------------------------------
+# For opmexec --shell, or source opmexec.bash at a prompt: the marker
+# "(opmexec SCHEDULER FLOW_VERSION)" before the prompt, and notices of finished
+# jobs before the prompt, checked at most every OPMEXEC_NOTIFY_INTERVAL seconds
+# (each check asks the schedulers)
+#OPMEXEC_PROMPT=true
+#OPMEXEC_NOTIFY=true
+#OPMEXEC_NOTIFY_INTERVAL=5
+
+# --- Files --------------------------------------------------------------------
+# Extension directives: ':'-separated directories or files
+#OPMEXEC_DIRECTIVE_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/opmexec/directives"
+
+# Session files, and job logs (empty: $OPMEXEC_STATE_DIR/logs)
+#OPMEXEC_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/opmexec"
+#OPMEXEC_LOG_DIR=''
+
+#OPMEXEC_DEBUG=false
