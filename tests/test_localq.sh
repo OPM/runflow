@@ -141,12 +141,14 @@ test_localq_works_without_setsid() {
 j=$(@submit sleep 30)
 until grep -qx RUNNING "$OPMEXEC_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
 pid=$(cat "$OPMEXEC_LOCALQ_DIR/${j#*:}/pid")
-echo "own-session=$([[ $(ps -o sid= -p "$pid" | tr -d ' ') == "$pid" ]] && echo yes || echo no)"
+echo "own-group=$([[ $(ps -o pgid= -p "$pid" | tr -d ' ') == "$pid" ]] && echo yes || echo no)"
 @cancel "$j"
 @wait @submit true
 EOF
   assert_rc 0
-  assert_contains "$OUT" "own-session=yes"
+  # Detached: the leader of its own session, so of its own process group
+  # (ps has no session ID field on macOS)
+  assert_contains "$OUT" "own-group=yes"
   assert_contains "$OUT" "cancelled"
   assert_contains "$OUT" "completed successfully"
 }

@@ -186,13 +186,13 @@ declare -ga _OPMEXEC_DIRECTIVE_ORDER=()
 opmexec::directive() {
   local name="$1" usage="$2" summary="$3" options="${4:-}"
   local kind="${_OPMEXEC_LOADING_KIND:-extension}" file="${_OPMEXEC_LOADING_FILE:-${BASH_SOURCE[1]:-}}"
-  
+
   # --<name>-options must stay unambiguous
   if opmexec::validate_scheduler "$name" 2> /dev/null; then
     opmexec::error "$file: @$name: the name of a scheduler cannot be used for a directive"
     return 1
   fi
-  
+
   if [[ "${_OPMEXEC_DIRECTIVE_KIND[$name]:-}" == core && "$kind" != core ]]; then
     opmexec::error "$file: @$name is a core directive and cannot be redefined"
     _OPMEXEC_CORE_CLASHES+=" $name"  # restored after the module (opmexec::load_module)
@@ -258,14 +258,14 @@ opmexec::option_names() {
 # VARIABLE="${VARIABLE-default}", so that jobs keep the workflow's value.
 opmexec::directive_setting() {
   local option="$1" var="$2" description="$3" kind="${4:-text}"
-  
+
   case "$option" in
     np|queue|scheduler|depends-on|directives|dry-run|command|jobs|help|shell|library|*-options)
       opmexec::error "@${_OPMEXEC_LAST_DIRECTIVE:-?}: --$option is reserved and cannot be a directive setting"
       return 1
       ;;
   esac
-  
+
   _OPMEXEC_SETTING_VAR[$option]="$var"
   _OPMEXEC_SETTING_DESCRIPTION[$option]="$description"
   _OPMEXEC_SETTING_DIRECTIVE[$option]="${_OPMEXEC_LAST_DIRECTIVE:-}"
@@ -476,7 +476,7 @@ opmexec::unknown_option() {
 # 0 if $1 is not a workflow option; returns 1 on errors.
 opmexec::setup_option() {
   _OPMEXEC_SHIFT=0
-  
+
   # Settings registered by directives (opmexec::directive_setting)
   if [[ "$1" == --* && -n "${_OPMEXEC_SETTING_VAR[${1#--}]:-}" ]]; then
     if [[ $# -lt 2 ]]; then
@@ -487,7 +487,7 @@ opmexec::setup_option() {
     _OPMEXEC_SHIFT=2
     return 0
   fi
-  
+
   case "$1" in
     -n|--np|-q|--queue|-s|--scheduler|--depends-on|--*-options|--directives)
       if [[ $# -lt 2 ]]; then
@@ -587,17 +587,29 @@ opmexec::workflow_mode() {
 }
 
 # A trapped signal in workflow mode: exit with STATUS (128 + its number), which
-# runs the exit handler. Usage: opmexec::workflow_signal NAME STATUS
+# runs the exit handler. Only the first signal does: an exit inside the exit
+# handler would end bash before it cleaned up, and signals often come in
+# twos (timeout signals the command, then its process group; a closing
+# terminal, every process). Usage: opmexec::workflow_signal NAME STATUS
 opmexec::workflow_signal() {
+  if [[ -n "${_OPMEXEC_EXITING:-}" ]]; then
+    opmexec::debug "SIG$1 received while exiting: ignored"
+    return
+  fi
+  _OPMEXEC_EXITING=true
   opmexec::debug "SIG$1 received: exiting with status $2"
   exit "$2"
 }
 
-# Exit handler of workflow mode
+# Exit handler of workflow mode: removes the session file before anything
+# else, as a signal that cannot be handled (kill -9) may still end it. A file
+# left behind is removed by the next opmexec on this host (see the top).
 opmexec::workflow_exit() {
-  local rc=$? njobs
-  njobs=$(( $(opmexec::session_jobs | wc -l) ))  # BSD wc pads with spaces
+  local rc=$? njobs=0
+  _OPMEXEC_EXITING=true
 
+  # The count is only printed in dry runs (counting forks)
+  opmexec::dry_run && njobs=$(( $(opmexec::session_jobs | wc -l) ))  # BSD wc pads with spaces
   # Remove first: printing can fail (e.g. closed pipe) and end the handler
   rm -f "$OPMEXEC_SESSION_FILE" "$OPMEXEC_SESSION_FILE.reported"
   opmexec::debug "Exit handler (status $rc): removed ${OPMEXEC_SESSION_FILE##*/}"

@@ -19,15 +19,24 @@ already shows the jobs a workflow would submit to them.
 
 ## Installation
 
-opmexec is a set of bash scripts and needs no build step. Put it where every
-machine that runs jobs can reach it at the same path (on a cluster: a shared
-filesystem), and add it to `PATH` and `MANPATH`:
+opmexec is a set of bash scripts and needs no build step. Clone it, and add
+its directory to `PATH` and `MANPATH` for this shell:
 
 ```bash
-git clone <repository URL> /shared/apps/opmexec    # not public yet
-export PATH="/shared/apps/opmexec:$PATH"           # the directory; do not symlink the script
-export MANPATH="/shared/apps/opmexec/man:$MANPATH"
+git clone <repository URL> opmexec       # not public yet
+cd opmexec
+export PATH="$PWD:$PATH"                 # the directory: do not symlink the script
+export MANPATH="$PWD/man:${MANPATH:-}"   # the ":" at the end keeps the system's man pages
 ```
+
+For every new shell, add the same to `~/.bashrc`, from the opmexec directory:
+
+```bash
+echo "export PATH=\"$PWD:\$PATH\" MANPATH=\"$PWD/man:\${MANPATH:-}\"" >> ~/.bashrc
+```
+
+On a cluster, clone it where every node finds it at the same path, e.g. on a
+shared filesystem (`man opmexec`, CONFIGURATION, "For administrators").
 
 **Requirements:**
 - bash 4.4 or newer, coreutils, util-linux and procps; on macOS:

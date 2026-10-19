@@ -15,7 +15,7 @@ test_tests_start_with_default_signals() {
   # As from a terminal (the runner resets them): a signal ignored from the
   # start cannot be trapped, and the signal tests would mean nothing
   local ignored
-  ignored=$(bash -c 'trap -p' | grep -E "^trap -- '' SIG(INT|QUIT|HUP|TERM)$")
+  ignored=$(bash -c 'trap -p' | grep -E "^trap -- '' SIG(INT|QUIT|HUP|TERM|PIPE)$")
   [[ -z "$ignored" ]] || fail "the test started with: $ignored"
 }
 
@@ -37,6 +37,50 @@ $(ps -eo pid,pgid,stat,args | grep -F "$SANDBOX" | grep -v grep)
 --- opmexec's output:
 $(cat "$sig.log")"
   done
+}
+
+test_second_signal_does_not_stop_the_cleanup() {
+  # A second HUP while the exit handler runs (timeout and closing terminals
+  # send several) must not end opmexec before it removed the session file.
+  # The workflow makes its exit handler slow, so that the second signal
+  # arrives in it: the first thing the handler asks is whether this is a
+  # dry run.
+  cat > workflow.sh << 'EOF'
+opmexec::dry_run() { [[ -z "${_OPMEXEC_EXITING:-}" ]] || sleep 1; return 1; }
+@submit true > /dev/null
+sleep 30 &
+echo "$!" > sleep.pid
+echo started > started
+wait
+EOF
+  local pid rc
+  OPMEXEC_DEBUG=true "$OPMEXEC" workflow.sh > out.log 2>&1 &
+  pid=$!
+  wait_for 10 test -f started || fail "the workflow did not start"
+  kill -HUP "$pid"
+  sleep 0.3
+  kill -HUP "$pid"
+  wait "$pid"
+  rc=$?
+  kill "$(cat sleep.pid)" 2> /dev/null
+  assert_eq "$rc" 129
+  assert_file_contains out.log "SIGHUP received while exiting: ignored"
+  assert_eq "$(session_files)" 0
+}
+
+test_session_file_of_an_ended_run_is_removed() {
+  # Left by a run that could not clean up (kill -9): removed by the next
+  # opmexec on the same host, whose process is gone
+  local state="$HOME/.local/state/opmexec" pid
+  mkdir -p "$state"
+  sh -c 'exit 0' & pid=$!
+  wait "$pid"
+  echo localq:1 > "$state/session.${HOSTNAME%%.*}.$pid"
+  echo localq:1 > "$state/session.otherhost.$pid"   # another host's: kept
+  run "$OPMEXEC" -c true
+  assert_rc 0
+  [[ ! -e "$state/session.${HOSTNAME%%.*}.$pid" ]] || fail "the ended run's session file is left"
+  [[ -e "$state/session.otherhost.$pid" ]] || fail "another host's session file was removed"
 }
 
 test_session_removed_on_closed_pipe() {

@@ -27,14 +27,14 @@ passed=0 failed=0 skipped=0
 failures=()
 
 # Run a command in a new session, without a controlling terminal, with INT,
-# QUIT, HUP and TERM at their defaults: a test must start as from a terminal,
-# but bash starts & commands with INT and QUIT ignored, and whatever started
-# the runner may ignore others (nohup: HUP). perl does both (and has setsid
-# on macOS); without perl, setsid alone.
+# QUIT, HUP, TERM and PIPE at their defaults: a test must start as from a
+# terminal, but bash starts & commands with INT and QUIT ignored, and whatever
+# started the runner may ignore others (nohup: HUP; GitHub's runners: PIPE).
+# perl does both (and has setsid on macOS); without perl, setsid alone.
 detached() {
   if command -v perl > /dev/null; then
     exec perl -MPOSIX -e '
-      $SIG{$_} = "DEFAULT" for qw(INT QUIT HUP TERM);
+      $SIG{$_} = "DEFAULT" for qw(INT QUIT HUP TERM PIPE);
       POSIX::setsid() or die "setsid: $!\n";
       exec { $ARGV[0] } @ARGV or die "exec: $!\n"' "$@"
   fi

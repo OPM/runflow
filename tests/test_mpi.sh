@@ -23,7 +23,10 @@ test_mpi_np_defaults_to_opmexec_np() {
 
 test_mpi_runs_plain_commands() {
   require_cmd mpirun
-  run "$OPMEXEC" -c @mpi -n 2 sh -c 'echo "rank ${OMPI_COMM_WORLD_RANK:-${PMI_RANK:-?}}"'
+  # A script, not sh -c '...': Open MPI 5's mpirun splits arguments with
+  # quotes and spaces
+  printf '%s\n' 'echo "rank ${OMPI_COMM_WORLD_RANK:-${PMI_RANK:-?}}"' > rank.sh
+  run "$OPMEXEC" -c @mpi -n 2 sh rank.sh
   assert_rc 0
   assert_eq "$(grep -c '^rank' <<< "$OUT")" 2
 }
