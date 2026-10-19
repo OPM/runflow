@@ -32,12 +32,15 @@ member() {  # DIR MULTIPLIER...
 "
   done
   mkdir -p "$1" || return 1
-  awk -v grid="$grid" '
-    /^PROPS/ { print grid }
+  # Copy the deck line by line: the multipliers before the PROPS line, and END
+  # after the 31 Dec 2019 dates (awk reads the multipliers from the
+  # environment variable GRID)
+  GRID=$grid awk '
+    /^PROPS/ { print ENVIRON["GRID"] }
     { print }
     /31 .DEC. 2019/ { at = 1 }
     at && /^\/$/ { print "END"; exit }
-  ' "$deck" > "$1/CASE.DATA"
+  ' "$deck" > "$1/CASE.DATA" || return 1
   echo "$1/CASE"
 }
 

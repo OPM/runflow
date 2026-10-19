@@ -26,13 +26,19 @@ timeout_s="${TEST_TIMEOUT:-60}"
 passed=0 failed=0 skipped=0
 failures=()
 
-# Run a command in a new session, without a controlling terminal: setsid, or
-# perl on macOS (as opmexec::localq::detach)
+# Run a command in a new session, without a controlling terminal, with INT,
+# QUIT, HUP and TERM at their defaults: a test must start as from a terminal,
+# but bash starts & commands with INT and QUIT ignored, and whatever started
+# the runner may ignore others (nohup: HUP). perl does both (and has setsid
+# on macOS); without perl, setsid alone.
 detached() {
-  if command -v setsid > /dev/null; then
-    exec setsid "$@"
+  if command -v perl > /dev/null; then
+    exec perl -MPOSIX -e '
+      $SIG{$_} = "DEFAULT" for qw(INT QUIT HUP TERM);
+      POSIX::setsid() or die "setsid: $!\n";
+      exec { $ARGV[0] } @ARGV or die "exec: $!\n"' "$@"
   fi
-  exec perl -MPOSIX -e 'POSIX::setsid() or die "setsid: $!\n"; exec { $ARGV[0] } @ARGV or die "exec: $!\n"' "$@"
+  exec setsid "$@"
 }
 
 # Ctrl-C (or TERM): stop the running test (timeout passes TERM on to it),
@@ -73,8 +79,6 @@ for file in "$TESTS_DIR"/test_*.sh; do
     # postpones it until a foreground command ends); detached from the
     # terminal, which an interactive test shell (bash -i) would otherwise try
     # to take over, and be stopped for, outside the foreground process group.
-    # (bash starts & commands with SIGINT ignored; timeout handles INT itself,
-    # so the test starts with it at its default again, and traps it.)
     detached timeout "$timeout_s" bash -c '
       source "$1"; source "$2"; setup_sandbox "$3"; "$4"
     ' _ "$TESTS_DIR/lib.sh" "$file" "$sandbox" "$fn" > "$sandbox/test.log" 2>&1 < /dev/null &

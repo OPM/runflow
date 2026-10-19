@@ -90,7 +90,8 @@ Each test runs in a separate bash process with its own sandbox:
 `test_*`. The runner finds them by name, cancels jobs left in the sandbox,
 and removes the sandbox afterwards.
 
-**Requirements:** bash 4.4, GNU coreutils (`timeout`, `date +%N`, `stat -c`),
+**Requirements:** bash 4.4, perl (which starts each test with the default
+signal handling, in its own session), GNU coreutils (`timeout`, `date +%N`, `stat -c`),
 and `mpirun` and `python3` for the tests that use them (they are skipped
 otherwise). On macOS, run `brew install coreutils` and put its `gnubin`
 directory first in `PATH`.

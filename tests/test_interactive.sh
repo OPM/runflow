@@ -34,8 +34,10 @@ EOF
   assert_contains "$OUT" "opmexec=$ROOT/opmexec"
   assert_contains "$OUT" "manpath=[$ROOT/man:]"
   assert_contains "$OUT" "path-entries=1"
-  if command -v man > /dev/null && man -w man > /dev/null 2>&1; then
-    run_shell <<< 'man -w opmexec; man -w man > /dev/null && echo system-pages-kept'
+  # Only with a working man and the system's pages (Ubuntu's container images
+  # replace man with a stub that prints a notice and succeeds)
+  if command -v man > /dev/null && [[ -f "$(man -w man 2> /dev/null)" ]]; then
+    run_shell <<< 'man -w opmexec; [[ -f "$(man -w man)" ]] && echo system-pages-kept'
     assert_contains "$OUT" "$ROOT/man/man1/opmexec.1"
     assert_contains "$OUT" "system-pages-kept"
   fi

@@ -17,9 +17,12 @@ python=$(dirname "${BASH_SOURCE[0]}")/python
 # GRID section (before PROPS). Prints the copy's path.
 variant() {  # NAME PROPERTY FACTOR
   mkdir -p "$dir/$1" || return 1
-  awk -v multiply="MULTIPLY
+  local text="MULTIPLY
   '$2' $3 /
-/" '/^PROPS/ { print multiply } { print }' "$deck" > "$dir/$1/$1.DATA"
+/"
+  # Copy the deck line by line, adding the text before the PROPS line (awk
+  # reads it from the environment variable TEXT)
+  TEXT=$text awk '/^PROPS/ { print ENVIRON["TEXT"] } { print }' "$deck" > "$dir/$1/$1.DATA" || return 1
   echo "$dir/$1/$1.DATA"
 }
 

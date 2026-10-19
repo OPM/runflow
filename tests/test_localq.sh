@@ -124,10 +124,16 @@ test_localq_missing_tools_fail_gracefully() {
 test_localq_works_without_setsid() {
   require_localq
   require_cmd perl
-  # macOS has no setsid: localq detaches jobs with perl instead
+  # macOS has no setsid: localq detaches jobs with perl instead. A PATH of
+  # one directory: every command of PATH, the first of a name winning as in
+  # PATH (e.g. Homebrew's bash before macOS's /bin/bash 3.2), but setsid
+  local dir f dirs
   mkdir "$SANDBOX/nosetsid"
-  for f in /usr/bin/* /bin/*; do
-    ln -sf "$f" "$SANDBOX/nosetsid/" 2> /dev/null
+  IFS=: read -ra dirs <<< "$PATH"
+  for dir in "${dirs[@]}"; do
+    for f in "$dir"/*; do
+      [[ -e "$SANDBOX/nosetsid/${f##*/}" ]] || ln -s "$f" "$SANDBOX/nosetsid/" 2> /dev/null
+    done
   done
   rm -f "$SANDBOX/nosetsid/setsid"
   export PATH="$SANDBOX/nosetsid"
@@ -280,14 +286,18 @@ test_localq_time_formats() {
 
 test_localq_nice() {
   require_localq
+  # nice adds to the niceness the tests run with (not always 0: GitHub's
+  # macOS runners run at -10); the result is at most 19
+  local base
+  base=$(ps -o nice= -p $$ | tr -d ' ')
   run "$OPMEXEC" --localq-options "--nice=7" -c @wait @submit -o "$PWD/nice.log" sh -c 'ps -o nice= -p $$'
   assert_rc 0
-  assert_eq "$(tr -d ' ' < nice.log)" 7
+  assert_eq "$(tr -d ' ' < nice.log)" "$(( base + 7 > 19 ? 19 : base + 7 ))"
 
   # From the configuration; --nice alone: 10
   printf '%s\n' "OPMEXEC_LOCALQ_OPTIONS=--nice" >> "$OPMEXEC_CONFIG"
   run "$OPMEXEC" -c @wait @submit -o "$PWD/nice.log" sh -c 'ps -o nice= -p $$'
-  assert_eq "$(tr -d ' ' < nice.log)" 10
+  assert_eq "$(tr -d ' ' < nice.log)" "$(( base + 10 > 19 ? 19 : base + 10 ))"
 }
 
 test_localq_job_name_listed() {

@@ -11,13 +11,16 @@ setup_sandbox() {
   SANDBOX="$1"
   mkdir -p "$SANDBOX/bin" "$SANDBOX/home" "$SANDBOX/work"
 
-  # Fake Flow: prints how it was called; FAKE_SLEEP/FAKE_RC control it
+  # Fake Flow: prints how it was called; FAKE_SLEEP/FAKE_RC control it. Its
+  # two lines go out in one write: MPI ranks share one log, and separate
+  # writes of two ranks would interleave
   cat > "$SANDBOX/bin/flowtest" << 'EOF'
 #!/bin/sh
 [ "$1" = --version ] && { echo "flow 2099.10"; exit 0; }
 [ "$1" = --build-info ] && { printf '%s\n' version=2099.10 hash=abc1234 "build_time=2099-01-02 at 03:04:05 hrs" build_type=Release "mpi=Fake MPI 1.0"; exit 0; }
-echo "FLOW exe=$0 args=$* np=${OMPI_COMM_WORLD_SIZE:-${PMI_SIZE:-1}} pythonpath=${PYTHONPATH%%:*}"
-printf 'ARGV'; printf ' [%s]' "$@"; echo
+argv=ARGV
+for arg; do argv="$argv [$arg]"; done
+printf '%s\n%s\n' "FLOW exe=$0 args=$* np=${OMPI_COMM_WORLD_SIZE:-${PMI_SIZE:-1}} pythonpath=${PYTHONPATH%%:*}" "$argv"
 [ -n "$FAKE_SLEEP" ] && sleep "$FAKE_SLEEP"
 exit "${FAKE_RC:-0}"
 EOF

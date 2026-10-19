@@ -569,11 +569,28 @@ opmexec::workflow_mode() {
   OPMEXEC_WORKFLOW_PID=$$
 
   trap 'opmexec::workflow_exit' EXIT
-  trap 'exit 129' HUP
-  trap 'exit 130' INT
-  trap 'exit 141' PIPE
-  trap 'exit 143' TERM
+  trap 'opmexec::workflow_signal HUP 129' HUP
+  trap 'opmexec::workflow_signal INT 130' INT
+  trap 'opmexec::workflow_signal PIPE 141' PIPE
+  trap 'opmexec::workflow_signal TERM 143' TERM
   trap 'exit 127' USR1  # sent by command_not_found_handle
+
+  # A signal ignored when bash started cannot be trapped (bash keeps it
+  # ignored, e.g. HUP under nohup): the workflow then does not stop on it
+  if [[ "${OPMEXEC_DEBUG:-}" == true ]]; then
+    local sig
+    for sig in HUP INT PIPE TERM; do
+      [[ "$(trap -p "$sig")" == *workflow_signal* ]] ||
+        opmexec::debug "SIG$sig was ignored when this shell started: the workflow ignores it too"
+    done
+  fi
+}
+
+# A trapped signal in workflow mode: exit with STATUS (128 + its number), which
+# runs the exit handler. Usage: opmexec::workflow_signal NAME STATUS
+opmexec::workflow_signal() {
+  opmexec::debug "SIG$1 received: exiting with status $2"
+  exit "$2"
 }
 
 # Exit handler of workflow mode
@@ -583,6 +600,7 @@ opmexec::workflow_exit() {
 
   # Remove first: printing can fail (e.g. closed pipe) and end the handler
   rm -f "$OPMEXEC_SESSION_FILE" "$OPMEXEC_SESSION_FILE.reported"
+  opmexec::debug "Exit handler (status $rc): removed ${OPMEXEC_SESSION_FILE##*/}"
 
   if opmexec::dry_run && [[ $rc -eq 0 ]]; then
     opmexec::dry "done: $njobs job(s) would be submitted; nothing was submitted"

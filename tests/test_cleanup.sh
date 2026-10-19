@@ -11,6 +11,14 @@ no_session_files() {
   [[ "$(session_files)" == 0 ]]
 }
 
+test_tests_start_with_default_signals() {
+  # As from a terminal (the runner resets them): a signal ignored from the
+  # start cannot be trapped, and the signal tests would mean nothing
+  local ignored
+  ignored=$(bash -c 'trap -p' | grep -E "^trap -- '' SIG(INT|QUIT|HUP|TERM)$")
+  [[ -z "$ignored" ]] || fail "the test started with: $ignored"
+}
+
 test_session_removed_on_signals() {
   cat > workflow.sh << 'EOF'
 @submit sleep 5 > /dev/null

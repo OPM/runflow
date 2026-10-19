@@ -15,7 +15,7 @@ mkdir -p "$dir/HISTORY" || exit 1
 
 # The history: the deck, ended (END) after the DATES record of 31 Dec 2019
 awk '{ print } /31 .DEC. 2019/ { at = 1 } at && /^\/$/ { print "END"; exit }' \
-  "$deck" > "$dir/HISTORY/HISTORY.DATA"
+  "$deck" > "$dir/HISTORY/HISTORY.DATA" || exit 1
 history=$(@submit -o "$dir/HISTORY/job.log" @flow "$dir/HISTORY/HISTORY.DATA") || exit 1
 
 # A scenario: the whole deck, restarting from the history's step 60 (RESTART
@@ -23,15 +23,17 @@ history=$(@submit -o "$dir/HISTORY/job.log" @flow "$dir/HISTORY/HISTORY.DATA") |
 # the schedule up to then), with KEYWORDS from 31 Dec 2019 on
 scenario() {  # NAME KEYWORDS
   mkdir -p "$dir/$1" || return 1
-  awk -v keywords="$2" '
+  # Copy the deck line by line, changing it as described above (awk reads
+  # the keywords from the environment variable KEYWORDS)
+  KEYWORDS=$2 awk '
     /^RUNSPEC/  { print; print "UNIFIN"; next }
     /^EQUIL/    { print "RESTART"; print "  \047../HISTORY/HISTORY\047 60 /"; skip = 1; next }
     skip        { if (/\//) skip = 0; next }
     /^SCHEDULE/ { print; print "SKIPREST"; next }
     { print }
     /31 .DEC. 2019/ { at = 1 }
-    at && /^\/$/ { print keywords; at = 0 }
-  ' "$deck" > "$dir/$1/$1.DATA"
+    at && /^\/$/ { print ENVIRON["KEYWORDS"]; at = 0 }
+  ' "$deck" > "$dir/$1/$1.DATA" || return 1
   echo "$dir/$1/$1.DATA"
 }
 
