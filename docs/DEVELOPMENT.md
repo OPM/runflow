@@ -144,6 +144,10 @@ Rocky Linux 8 has bash 4.4, the oldest supported.
   `..._into VAR` helpers) prefix their locals with their own name, e.g.
   `_pstart_start`: `printf -v` writes the innermost variable of that name, so
   a local named like the caller's variable silently swallows the value.
+- **Clean-up on exit:** workflow mode cleans up in an `EXIT` trap whose first
+  step ignores further signals (signals often arrive in twos), and keeps
+  per-run state that is harmless if left behind: each run reads only its own
+  session file, and the next run on the host removes those of ended runs.
 - **Library side effects:** the library must not change the shell's options
   (no `set -o pipefail`) or traps outside workflow mode.
 - **Output:** stdout carries data (job IDs, listings). Messages go to stderr

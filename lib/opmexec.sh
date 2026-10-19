@@ -587,32 +587,31 @@ opmexec::workflow_mode() {
 }
 
 # A trapped signal in workflow mode: exit with STATUS (128 + its number), which
-# runs the exit handler. Only the first signal does: an exit inside the exit
-# handler would end bash before it cleaned up, and signals often come in
-# twos (timeout signals the command, then its process group; a closing
-# terminal, every process). Usage: opmexec::workflow_signal NAME STATUS
+# runs the exit handler. Usage: opmexec::workflow_signal NAME STATUS
 opmexec::workflow_signal() {
-  if [[ -n "${_OPMEXEC_EXITING:-}" ]]; then
-    opmexec::debug "SIG$1 received while exiting: ignored"
-    return
-  fi
-  _OPMEXEC_EXITING=true
   opmexec::debug "SIG$1 received: exiting with status $2"
   exit "$2"
 }
 
-# Exit handler of workflow mode: removes the session file before anything
-# else, as a signal that cannot be handled (kill -9) may still end it. A file
-# left behind is removed by the next opmexec on this host (see the top).
+# Exit handler of workflow mode: the standard clean-up idiom. Further signals
+# are ignored, so that nothing interrupts the clean-up: they often come in
+# twos (timeout signals the command, then its process group; a closing
+# terminal, every process), and the commands it runs (rm) inherit that. What
+# a signal that cannot be handled (kill -9) leaves behind is harmless: each
+# run reads only its own session file, and the next opmexec on this host
+# removes those of ended runs (see the top).
 opmexec::workflow_exit() {
   local rc=$? njobs=0
-  _OPMEXEC_EXITING=true
+  trap '' HUP INT PIPE TERM
 
   # The count is only printed in dry runs (counting forks)
   opmexec::dry_run && njobs=$(( $(opmexec::session_jobs | wc -l) ))  # BSD wc pads with spaces
   # Remove first: printing can fail (e.g. closed pipe) and end the handler
-  rm -f "$OPMEXEC_SESSION_FILE" "$OPMEXEC_SESSION_FILE.reported"
-  opmexec::debug "Exit handler (status $rc): removed ${OPMEXEC_SESSION_FILE##*/}"
+  if rm -f "$OPMEXEC_SESSION_FILE" "$OPMEXEC_SESSION_FILE.reported"; then
+    opmexec::debug "Exit handler (status $rc): removed ${OPMEXEC_SESSION_FILE##*/}"
+  else
+    opmexec::debug "Exit handler (status $rc): could not remove ${OPMEXEC_SESSION_FILE##*/}"
+  fi
 
   if opmexec::dry_run && [[ $rc -eq 0 ]]; then
     opmexec::dry "done: $njobs job(s) would be submitted; nothing was submitted"

@@ -40,31 +40,51 @@ $(cat "$sig.log")"
 }
 
 test_second_signal_does_not_stop_the_cleanup() {
-  # A second HUP while the exit handler runs (timeout and closing terminals
-  # send several) must not end opmexec before it removed the session file.
-  # The workflow makes its exit handler slow, so that the second signal
-  # arrives in it: the first thing the handler asks is whether this is a
-  # dry run.
-  cat > workflow.sh << 'EOF'
-opmexec::dry_run() { [[ -z "${_OPMEXEC_EXITING:-}" ]] || sleep 1; return 1; }
+  # Two HUPs to opmexec's process group, as timeout and closing terminals
+  # send them: the second arrives while the exit handler removes the session
+  # file, and must stop neither the handler nor the rm it runs. The workflow
+  # makes rm slow: a sleep first, which a signal it did not ignore would end,
+  # and rm with it.
+  require_cmd perl
+  cat > workflow.sh << 'WORKFLOW'
+rm() { sleep 1 && command rm "$@"; }
 @submit true > /dev/null
-sleep 30 &
-echo "$!" > sleep.pid
 echo started > started
+sleep 30 &
 wait
-EOF
+WORKFLOW
   local pid rc
-  OPMEXEC_DEBUG=true "$OPMEXEC" workflow.sh > out.log 2>&1 &
+  OPMEXEC_DEBUG=true perl -e 'setpgrp(0, 0); exec @ARGV' "$OPMEXEC" workflow.sh > out.log 2>&1 &
   pid=$!
   wait_for 10 test -f started || fail "the workflow did not start"
-  kill -HUP "$pid"
+  kill -HUP -- "-$pid"
   sleep 0.3
-  kill -HUP "$pid"
+  kill -HUP -- "-$pid"
   wait "$pid"
   rc=$?
-  kill "$(cat sleep.pid)" 2> /dev/null
   assert_eq "$rc" 129
-  assert_file_contains out.log "SIGHUP received while exiting: ignored"
+  assert_file_contains out.log "SIGHUP received: exiting with status 129"
+  assert_file_contains out.log "Exit handler (status 129): removed session."
+  assert_eq "$(session_files)" 0
+}
+
+test_signal_during_a_normal_exit_does_not_stop_the_cleanup() {
+  # The same, when the workflow ended by itself: a HUP to its process group
+  # while the exit handler runs rm
+  require_cmd perl
+  cat > workflow.sh << 'WORKFLOW'
+rm() { echo > in-rm; sleep 1 && command rm "$@"; }
+@submit true > /dev/null
+WORKFLOW
+  local pid rc
+  OPMEXEC_DEBUG=true perl -e 'setpgrp(0, 0); exec @ARGV' "$OPMEXEC" workflow.sh > out.log 2>&1 &
+  pid=$!
+  wait_for 10 test -f in-rm || fail "the exit handler did not start"
+  kill -HUP -- "-$pid"
+  wait "$pid"
+  rc=$?
+  assert_eq "$rc" 0
+  assert_file_contains out.log "Exit handler (status 0): removed session."
   assert_eq "$(session_files)" 0
 }
 
