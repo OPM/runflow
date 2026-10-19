@@ -57,6 +57,11 @@ interrupted() {
 }
 trap interrupted INT TERM
 
+if [[ -z "$TIMEOUT" ]]; then
+  echo "The tests need GNU timeout (coreutils; on macOS: brew install coreutils)" >&2
+  exit 1
+fi
+
 echo "opmexec tests (scheduler: $TEST_SCHEDULER)"
 
 for file in "$TESTS_DIR"/test_*.sh; do
@@ -73,13 +78,13 @@ for file in "$TESTS_DIR"/test_*.sh; do
     fi
 
     sandbox=$(mktemp -d "$TMPDIR/opmexec-test.XXXXXX")
-    start=$(date +%s.%N)
+    start=$(now)
 
     # In the background, so that the trap above runs at once on Ctrl-C (bash
     # postpones it until a foreground command ends); detached from the
     # terminal, which an interactive test shell (bash -i) would otherwise try
     # to take over, and be stopped for, outside the foreground process group.
-    detached timeout "$timeout_s" bash -c '
+    detached "$TIMEOUT" "$timeout_s" bash -c '
       source "$1"; source "$2"; setup_sandbox "$3"; "$4"
     ' _ "$TESTS_DIR/lib.sh" "$file" "$sandbox" "$fn" > "$sandbox/test.log" 2>&1 < /dev/null &
     test_pid=$!
@@ -88,7 +93,7 @@ for file in "$TESTS_DIR"/test_*.sh; do
     test_pid=""
 
     teardown_sandbox "$sandbox"
-    elapsed=$(awk -v s="$start" -v e="$(date +%s.%N)" 'BEGIN { printf "%.1fs", e - s }')
+    elapsed=$(awk -v s="$start" -v e="$(now)" 'BEGIN { printf "%.1fs", e - s }')
 
     case "$rc" in
       0)

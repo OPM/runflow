@@ -82,13 +82,14 @@ setup_linux() {
     CI_FLOW="${CI_FLOW:-}" CI_STRESS="${CI_STRESS:-}" bash "$script" --run
 }
 
-# macOS: Homebrew's bash, flock and GNU coreutils (the tests use timeout,
-# date +%N and stat -c), and Open MPI
+# macOS: Homebrew's bash and flock, as for users; coreutils for the tests'
+# timeout (gtimeout: its gnubin stays out of PATH, so the tests run with
+# macOS's own tools); Open MPI
 setup_macos() {
   local prefix
   brew install -q bash flock coreutils open-mpi
   prefix=$(brew --prefix)
-  export PATH="$prefix/opt/coreutils/libexec/gnubin:$prefix/bin:$PATH"
+  export PATH="$prefix/bin:$PATH"
   exec "$prefix/bin/bash" "$script" --run
 }
 

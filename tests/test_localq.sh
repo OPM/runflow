@@ -5,9 +5,9 @@ test_localq_fifo_and_slots() {
   require_localq
   # 4 slots: A takes 3; B (2) must wait for A; C (1) would fit but is behind B
   run_script << 'EOF'
-@submit -n 3 sh -c 'date +%s.%N > A.start; sleep 1.5; date +%s.%N > A.end' > /dev/null
-@submit -n 2 sh -c 'date +%s.%N > B.start' > /dev/null
-@submit -n 1 sh -c 'date +%s.%N > C.start' > /dev/null
+@submit -n 3 sh -c '"$SANDBOX/tools/now" > A.start; sleep 1.5; "$SANDBOX/tools/now" > A.end' > /dev/null
+@submit -n 2 sh -c '"$SANDBOX/tools/now" > B.start' > /dev/null
+@submit -n 1 sh -c '"$SANDBOX/tools/now" > C.start' > /dev/null
 @wait
 EOF
   assert_rc 0
@@ -52,7 +52,7 @@ until grep -qx RUNNING "$OPMEXEC_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sle
 pid=$(cat "$OPMEXEC_LOCALQ_DIR/${j#*:}/pid")
 @cancel "$j"
 sleep 0.5
-echo "left=$(ps -o pid= -g "$pid" | wc -l)"
+echo "left=$(ps -A -o pgid= | awk -v g="$pid" '$1 == g { n++ } END { print n + 0 }')"
 EOF
   assert_contains "$OUT" "left=0"
 }
@@ -180,7 +180,7 @@ test_localq_state_dir_is_private() {
   require_localq
   run "$OPMEXEC" -c @wait @submit true
   assert_rc 0
-  assert_eq "$(stat -c %a "$OPMEXEC_LOCALQ_DIR")" 700
+  assert_eq "$(ls -ld "$OPMEXEC_LOCALQ_DIR" | cut -c 1-10)" drwx------
 }
 
 test_localq_refuses_state_dir_it_does_not_own() {
@@ -215,7 +215,7 @@ pid=$(cat "$OPMEXEC_LOCALQ_DIR/${j#*:}/pid")
 @wait "$j"
 echo "wait-rc=$?"
 sleep 0.5
-echo "left=$(ps -o pid= -g "$pid" | wc -l)"
+echo "left=$(ps -A -o pgid= | awk -v g="$pid" '$1 == g { n++ } END { print n + 0 }')"
 EOF2
   assert_contains "$OUT" "wait-rc=1"
   assert_contains "$OUT" "left=0"
@@ -314,9 +314,9 @@ test_localq_exclusive_takes_every_slot() {
   require_localq
   # 4 slots: A needs 1 but is exclusive; B (1) must wait for A
   run_script << 'EOF2'
-@submit --localq-options --exclusive sh -c 'date +%s.%N > A.start; sleep 1.5; date +%s.%N > A.end' > /dev/null
+@submit --localq-options --exclusive sh -c '"$SANDBOX/tools/now" > A.start; sleep 1.5; "$SANDBOX/tools/now" > A.end' > /dev/null
 sleep 0.5
-@submit sh -c 'date +%s.%N > B.start' > /dev/null
+@submit sh -c '"$SANDBOX/tools/now" > B.start' > /dev/null
 @wait
 EOF2
   assert_rc 0

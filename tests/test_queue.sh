@@ -73,7 +73,7 @@ test_wait_without_arguments_waits_for_session() {
 @submit sh -c 'sleep 1; touch a.done' > /dev/null
 @submit sh -c 'sleep 1; touch b.done' > /dev/null
 @wait
-echo "wait-rc=$? done=$(ls *.done | wc -l)"
+echo "wait-rc=$? done=$(ls *.done | awk 'END { print NR }')"
 EOF
   assert_contains "$OUT" "wait-rc=0 done=2"
 }

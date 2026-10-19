@@ -25,18 +25,18 @@ cat > workflow.sh << 'EOF'
 for i in $(seq 1 "$1"); do
   np=$(( RANDOM % 4 + 1 ))
   @submit -n "$np" sh -c '
-    echo "S $(date +%s.%N) $1 $2" >> events.log
+    echo "S $("$SANDBOX/tools/now") $1 $2" >> events.log
     sleep 0.1
-    echo "E $(date +%s.%N) $1 $2" >> events.log
+    echo "E $("$SANDBOX/tools/now") $1 $2" >> events.log
   ' job "$i" "$np" > /dev/null || exit 1
 done
 @wait > /dev/null 2>&1
 EOF
 
-start=$(date +%s.%N)
+start=$(now)
 "$OPMEXEC" workflow.sh "$njobs"
 rc=$?
-end=$(date +%s.%N)
+end=$(now)
 
 errors=0
 check() {
@@ -54,7 +54,7 @@ completed=$("$OPMEXEC" -s localq --jobs=all | grep -c ' COMPLETED ')
 check "all jobs COMPLETED" "$([[ $completed -eq $njobs ]] && echo ok || echo "$completed of $njobs")"
 
 starts=$(grep -c '^S ' events.log)
-unique=$(awk '$1 == "S" { print $3 }' events.log | sort -u | wc -l)
+unique=$(awk '$1 == "S" && !seen[$3]++ { n++ } END { print n + 0 }' events.log)
 check "every job ran exactly once" \
   "$([[ $starts -eq $njobs && $unique -eq $njobs ]] && echo ok || echo "$starts starts, $unique unique")"
 

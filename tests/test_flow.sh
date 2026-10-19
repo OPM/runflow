@@ -229,7 +229,10 @@ test_flow_list_keeps_search_order_when_checking_in_parallel() {
     mkdir "$SANDBOX/$d"
     cp "$SANDBOX/bin/flowtest" "$SANDBOX/$d/flowx"
   done
-  sed -i '2i [ "$1" = --build-info ] \&\& sleep 0.5' "$SANDBOX/a/flowx"
+  # (its build information takes 0.5 s: a line after the first one)
+  { head -n 1 "$SANDBOX/bin/flowtest"
+    echo '[ "$1" = --build-info ] && sleep 0.5'
+    tail -n +2 "$SANDBOX/bin/flowtest"; } > "$SANDBOX/a/flowx"
   fake_other_flow "$SANDBOX/b" flowy
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/c/flowy"
   printf '%s\n' "OPMEXEC_FLOW_BIN_PATHS=(\"$SANDBOX/a\" \"$SANDBOX/b\" \"$SANDBOX/c\")" >> "$OPMEXEC_CONFIG"

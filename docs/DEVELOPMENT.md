@@ -90,11 +90,14 @@ Each test runs in a separate bash process with its own sandbox:
 `test_*`. The runner finds them by name, cancels jobs left in the sandbox,
 and removes the sandbox afterwards.
 
-**Requirements:** bash 4.4, perl (which starts each test with the default
-signal handling, in its own session), GNU coreutils (`timeout`, `date +%N`, `stat -c`),
-and `mpirun` and `python3` for the tests that use them (they are skipped
-otherwise). On macOS, run `brew install coreutils` and put its `gnubin`
-directory first in `PATH`.
+**Requirements:** what opmexec needs, plus perl (which starts each test with
+the default signal handling, in its own session, and times it) and GNU
+`timeout`; `mpirun` and `python3` for the tests that use them (they are
+skipped otherwise). On macOS: `brew install bash flock coreutils`; the tests
+use Homebrew's `gtimeout` and otherwise macOS's own tools, so nothing else
+goes in `PATH`. Tests use only what Linux and macOS share: no GNU-only
+options (`sed -i`, `stat -c`, `date +%N`), and counts from `awk`, not
+`wc -l`, which pads them with spaces on macOS.
 
 **Continuous integration** ([.github/workflows/tests.yml](../.github/workflows/tests.yml))
 runs the suite on every push and pull request, and weekly:

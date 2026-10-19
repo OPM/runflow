@@ -6,6 +6,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OPMEXEC="$ROOT/opmexec"
 TEST_SCHEDULER="${TEST_SCHEDULER:-localq}"
 
+# The tests use only what Linux and macOS share (macOS's wc, stat, ps, date
+# and sed differ from GNU's), plus perl and GNU timeout, which Homebrew
+# installs as gtimeout (as timeout only with its gnubin in PATH)
+TIMEOUT=$(type -P timeout || type -P gtimeout)
+[[ "$TIMEOUT" == */timeout ]] || timeout() { "$TIMEOUT" "$@"; }
+
+# Seconds since the epoch, to the microsecond (date +%N is GNU's)
+now() {
+  perl -MTime::HiRes=time -e 'printf "%.6f\n", time'
+}
+
 # Create the sandbox and enter its work directory
 setup_sandbox() {
   SANDBOX="$1"
@@ -25,6 +36,14 @@ printf '%s\n%s\n' "FLOW exe=$0 args=$* np=${OMPI_COMM_WORLD_SIZE:-${PMI_SIZE:-1}
 exit "${FAKE_RC:-0}"
 EOF
   chmod +x "$SANDBOX/bin/flowtest"
+
+  # now, for the commands of jobs: "$SANDBOX/tools/now" > started
+  mkdir -p "$SANDBOX/tools"
+  cat > "$SANDBOX/tools/now" << 'EOF'
+#!/bin/sh
+exec perl -MTime::HiRes=time -e 'printf "%.6f\n", time'
+EOF
+  chmod +x "$SANDBOX/tools/now"
 
   # Only the test configuration is read (OPMEXEC_CONFIG); nothing from the
   # user's environment or files gets in

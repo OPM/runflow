@@ -122,7 +122,7 @@ test_wait_directive_waits_for_every_job_it_prints() {
   run_script << 'EOF'
 @two() { @submit sh -c 'sleep 1; touch a.done'; @submit sh -c 'sleep 1; touch b.done'; }
 ids=$(@wait @two)
-echo "rc=$? ids=$(echo $ids) done=$(ls *.done | wc -l)"
+echo "rc=$? ids=$(echo $ids) done=$(ls *.done | awk 'END { print NR }')"
 EOF
   assert_contains "$OUT" "rc=0 ids=$TEST_SCHEDULER:1 $TEST_SCHEDULER:2 done=2"
 }
