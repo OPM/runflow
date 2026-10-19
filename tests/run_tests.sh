@@ -19,6 +19,31 @@ timeout_s="${TEST_TIMEOUT:-60}"
 passed=0 failed=0 skipped=0
 failures=()
 
+# Run a command in a new session, without a controlling terminal: setsid, or
+# perl on macOS (as opmexec::localq::detach)
+detached() {
+  if command -v setsid > /dev/null; then
+    exec setsid "$@"
+  fi
+  exec perl -MPOSIX -e 'POSIX::setsid() or die "setsid: $!\n"; exec { $ARGV[0] } @ARGV or die "exec: $!\n"' "$@"
+}
+
+# Ctrl-C (or TERM): stop the running test (timeout passes TERM on to it),
+# clean up its sandbox, and stop
+test_pid="" sandbox=""
+interrupted() {
+  if [[ -n "$test_pid" ]]; then
+    kill -TERM "$test_pid" 2> /dev/null
+    wait "$test_pid" 2> /dev/null
+    teardown_sandbox "$sandbox"
+    [[ "$sandbox" != "${TMPDIR:-/tmp}"/opmexec-test.* ]] || rm -rf -- "$sandbox"
+  fi
+  echo
+  echo "interrupted: $passed passed, $failed failed, $skipped skipped so far"
+  exit 130
+}
+trap interrupted INT TERM
+
 echo "opmexec tests (scheduler: $TEST_SCHEDULER)"
 
 for file in "$TESTS_DIR"/test_*.sh; do
@@ -37,10 +62,19 @@ for file in "$TESTS_DIR"/test_*.sh; do
     sandbox=$(mktemp -d "${TMPDIR:-/tmp}/opmexec-test.XXXXXX")
     start=$(date +%s.%N)
 
-    timeout "$timeout_s" bash -c '
+    # In the background, so that the trap above runs at once on Ctrl-C (bash
+    # postpones it until a foreground command ends); detached from the
+    # terminal, which an interactive test shell (bash -i) would otherwise try
+    # to take over, and be stopped for, outside the foreground process group.
+    # (bash starts & commands with SIGINT ignored; timeout handles INT itself,
+    # so the test starts with it at its default again, and traps it.)
+    detached timeout "$timeout_s" bash -c '
       source "$1"; source "$2"; setup_sandbox "$3"; "$4"
-    ' _ "$TESTS_DIR/lib.sh" "$file" "$sandbox" "$fn" > "$sandbox/test.log" 2>&1
+    ' _ "$TESTS_DIR/lib.sh" "$file" "$sandbox" "$fn" > "$sandbox/test.log" 2>&1 < /dev/null &
+    test_pid=$!
+    wait "$test_pid"
     rc=$?
+    test_pid=""
 
     teardown_sandbox "$sandbox"
     elapsed=$(awk -v s="$start" -v e="$(date +%s.%N)" 'BEGIN { printf "%.1fs", e - s }')

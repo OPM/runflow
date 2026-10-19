@@ -73,6 +73,12 @@ tests/stress_localq.sh [JOBS] [SLOTS]  # concurrency and slot accounting (defaul
 | `TMPDIR` | Where sandboxes are created. On a cluster it must be shared with the compute nodes. |
 | `TEST_FLOW`, `TEST_FLOWPY`, `TEST_DECKS` | A real Flow executable, one with Python bindings (default: `TEST_FLOW`) and a directory with SPE1CASE2.DATA (e.g. opm-common's `tests/`): the examples' real-run tests use them; skipped without. |
 
+Ctrl-C stops the running test, removes its sandbox and ends the run. Tests
+run detached from the terminal (`setsid`, or perl on macOS), so they behave
+the same in a terminal and in CI: an interactive shell under test (`bash -i`)
+would otherwise be stopped by the kernel for trying to take over a terminal
+it does not own.
+
 Each test runs in a separate bash process with its own sandbox:
 - a `HOME`, a configuration and a localq directory;
 - a fake Flow (`flowtest`) that prints its arguments, its MPI size and its
