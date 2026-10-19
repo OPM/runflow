@@ -90,10 +90,30 @@ Each test runs in a separate bash process with its own sandbox:
 `test_*`. The runner finds them by name, cancels jobs left in the sandbox,
 and removes the sandbox afterwards.
 
-**Requirements:** bash 4.2, GNU coreutils (`timeout`, `date +%N`, `stat -c`),
+**Requirements:** bash 4.4, GNU coreutils (`timeout`, `date +%N`, `stat -c`),
 and `mpirun` and `python3` for the tests that use them (they are skipped
 otherwise). On macOS, run `brew install coreutils` and put its `gnubin`
 directory first in `PATH`.
+
+**Continuous integration** ([.github/workflows/tests.yml](../.github/workflows/tests.yml))
+runs the suite on every push and pull request, and weekly:
+
+| For | Systems |
+|---|---|
+| workstations | Ubuntu 24.04 (with the localq stress test), macOS 15 on Apple silicon and on Intel |
+| clusters (containers) | Rocky Linux 8, 9 and 10 (RHEL), Debian 12 and 13, Ubuntu 22.04, openSUSE Leap 15.6 (SLES) |
+| real Flow | Debian 13's OPM packages (2024.10, no `--build-info`), the OPM PPA's on Ubuntu 24.04 |
+
+Each job runs `.github/ci/run-tests.sh`. It installs the requirements with
+the system's package manager, then runs the tests as an ordinary user, never
+as root. The sandboxes of failed tests are uploaded as the job's artifact.
+To run a cluster job locally:
+
+```bash
+docker run --rm --init -v "$PWD:/src" -w /src rockylinux/rockylinux:9 bash .github/ci/run-tests.sh
+```
+
+Rocky Linux 8 has bash 4.4, the oldest supported.
 
 **Rules for tests:**
 - Never touch the real `HOME`, `/var/tmp` or the user's queue. Use the sandbox
@@ -115,7 +135,7 @@ directory first in `PATH`.
   | settings and globals | `OPMEXEC_NAME` |
   | internal variables | `_OPMEXEC_NAME` |
 
-- **Portability:** the code runs on bash 4.2 or newer, on Linux and on macOS
+- **Portability:** the code runs on bash 4.4 or newer, on Linux and on macOS
   (with Homebrew). No GNU-only options outside the tests. Linux-only paths
   (`/proc`, `setsid`) need a fallback, defined on every platform so the tests
   run it on Linux too (e.g. `opmexec::localq::pstart_into_ps`).

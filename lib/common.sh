@@ -2,10 +2,10 @@
 # Shared by the library and the localq runner: bash version check,
 # configuration loading, messages
 
-# opmexec needs bash 4.2 or newer (printf '%(...)T', declare -g)
-# Checked before anything that needs it runs.
-if (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 2) )); then
-  echo "[ERROR] opmexec needs bash 4.2 or newer (running bash $BASH_VERSION)" >&2
+# opmexec needs bash 4.4 or newer, the oldest tested (RHEL 8; see
+# .github/workflows/tests.yml). Checked before anything that needs it runs.
+if (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4) )); then
+  echo "[ERROR] opmexec needs bash 4.4 or newer (running bash $BASH_VERSION)" >&2
   if [[ "$(uname -s)" == Darwin ]]; then
     echo "        On macOS: brew install bash, with Homebrew's bin first in PATH" >&2
   fi

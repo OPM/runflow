@@ -1,5 +1,7 @@
 # opmexec
 
+[![tests](https://github.com/SoilRos/opmexec/actions/workflows/tests.yml/badge.svg)](https://github.com/SoilRos/opmexec/actions/workflows/tests.yml)
+
 The execution environment for [OPM](https://opm-project.org) (Open Porous
 Media). opmexec runs Flow, Flow's Python and any other program the same way on
 a workstation and on a cluster. It finds the installed Flow versions and the
@@ -28,7 +30,7 @@ export MANPATH="/shared/apps/opmexec/man:$MANPATH"
 ```
 
 **Requirements:**
-- bash 4.2 or newer, coreutils, util-linux and procps; on macOS:
+- bash 4.4 or newer, coreutils, util-linux and procps; on macOS:
   `brew install bash flock`, with Homebrew's `bin` first in `PATH`.
 - OPM Flow, and an MPI launcher (`mpirun`) for runs with MPI.
 - For `@flowpy` and the examples: a Flow build with its Python bindings

@@ -1,0 +1,88 @@
+# opmexec's tests on the systems it is used on:
+#   workstations  where users try it locally: Ubuntu, macOS (both CPUs)
+#   clusters      administered systems where Flow runs: RHEL (Rocky Linux),
+#                 Debian, Ubuntu LTS, SLES (openSUSE Leap), in containers
+#   real Flow     OPM's own packages: Debian's (an older release, without
+#                 flow --build-info) and the OPM PPA's (the current release)
+# Every job runs .github/ci/run-tests.sh, which installs what the tests need
+# and runs them as an ordinary user.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * 1"   # weekly: catches changes in the systems' images
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workstation:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Ubuntu 24.04", os: ubuntu-24.04, stress: "1" }
+          - { name: "macOS 15 (Apple silicon)", os: macos-15 }
+          - { name: "macOS 15 (Intel)", os: macos-15-intel }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests
+        env:
+          CI_STRESS: ${{ matrix.stress }}
+        run: .github/ci/run-tests.sh
+      - name: Sandboxes of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandboxes-${{ matrix.os }}
+          path: ci-sandboxes/
+          if-no-files-found: ignore
+
+  # Containers started with docker run, not the job's container option:
+  # one way for every image, and no requirement on the image's C library.
+  # --init reaps orphaned processes, as a system's init does: localq tells a
+  # dead runner by its /proc entry, which a zombie would keep.
+  cluster:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Rocky Linux 8 (RHEL 8)", image: "rockylinux/rockylinux:8" }
+          - { name: "Rocky Linux 9 (RHEL 9)", image: "rockylinux/rockylinux:9" }
+          - { name: "Rocky Linux 10 (RHEL 10)", image: "rockylinux/rockylinux:10" }
+          - { name: "Debian 12", image: "debian:12" }
+          - { name: "Debian 13", image: "debian:13" }
+          - { name: "Ubuntu 22.04", image: "ubuntu:22.04" }
+          - { name: "openSUSE Leap 15.6 (SLES 15)", image: "opensuse/leap:15.6" }
+          - { name: "Flow from Debian 13's packages", image: "debian:13", flow: debian }
+          - { name: "Flow from the OPM PPA (Ubuntu 24.04)", image: "ubuntu:24.04", flow: ppa }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests
+        run: |
+          docker run --rm --init -v "$PWD:/src" -w /src \
+            -e CI_FLOW="${{ matrix.flow }}" \
+            -e OMPI_MCA_btl_vader_single_copy_mechanism=none \
+            -e OMPI_MCA_rmaps_base_oversubscribe=1 \
+            "${{ matrix.image }}" bash .github/ci/run-tests.sh
+      - name: Sandboxes of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandboxes-${{ strategy.job-index }}
+          path: ci-sandboxes/
+          if-no-files-found: ignore

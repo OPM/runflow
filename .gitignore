@@ -8,3 +8,6 @@
 /examples/runs/
 /examples/decks/
 __pycache__/
+
+# Sandboxes of failed tests kept by CI (.github/ci/run-tests.sh)
+/ci-sandboxes/

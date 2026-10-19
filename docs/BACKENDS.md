@@ -39,7 +39,7 @@ them, while `--dry-run -s NAME` already works.
   prefix.
 - **Errors:** report with `opmexec::error` and return non-zero. stdout carries
   only what the function's contract specifies.
-- **Portability:** bash 4.2 or newer, on Linux and on macOS. No GNU-only
+- **Portability:** bash 4.4 or newer, on Linux and on macOS. No GNU-only
   options.
 
 ## INTERFACE
@@ -140,7 +140,7 @@ What a backend's jobs rely on, and what to check on a new cluster.
 directory, runs `OPMEXEC_JOB_SETUP` (the job fails if it fails), then starts
 `opmexec -n NP -c COMMAND...` again. The compute nodes therefore need
 opmexec, the submission directory, the Flow builds and the extension
-directives at the same paths (a shared filesystem), and bash 4.2 or newer
+directives at the same paths (a shared filesystem), and bash 4.4 or newer
 and the MPI launcher in `PATH`, e.g. with
 `OPMEXEC_JOB_SETUP='source /etc/profile.d/modules.sh && module load openmpi opm'`.
 
