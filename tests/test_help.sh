@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Help for directives: @help, @DIRECTIVE --help, declared options (also used
-# by Tab completion), and the man page covering them
+# Help for directives: @help (the only help of a directive), declared options
+# (also used by Tab completion), and the man page covering them
 
 test_help_lists_directives() {
   run "$OPMEXEC" -c @help
   assert_rc 0
   assert_contains "$OUT" "  @flow    Run Flow as one process"
   assert_contains "$OUT" "  @submit  Queue a job"
-  assert_contains "$OUT" "@help @NAME: its options"
+  assert_contains "$OUT" "@help @NAME: the options of one."
   assert_contains "$OUT" "Full reference: man "
 }
 
@@ -16,8 +16,7 @@ test_help_shows_a_directive() {
   assert_rc 0
   assert_contains "$OUT" "@flow [-v VERSION] [FLOW_ARGUMENTS...]"
   [[ "$OUT" =~ "  -v, --flow-version VERSION"[[:space:]]+"Flow version: a path, a name in OPMEXEC_FLOW_VERSIONS" ]] || fail "no -v line"
-  # @flow passes --help on to Flow
-  [[ "$OUT" =~ "  --help, --version"\ +"Flow's own" ]] || fail "no --help line"
+  assert_not_contains "$OUT" "--help"
   assert_contains "$OUT" "Defaults for every @flow (options of opmexec and opmexec::setup):"
   [[ "$OUT" =~ "  --flow-version VERSION"\ +"Flow version for every @flow and @flowpy without -v (default: flowtest)" ]] || fail "no setting line"
   assert_contains "$OUT" "Full reference: LESS='+/^   @flow' man "
@@ -26,23 +25,23 @@ test_help_shows_a_directive() {
   assert_contains "$OUT" "@flow [-v VERSION]"
 }
 
-test_directive_help_option() {
+test_directives_have_no_help_option() {
   local name
-  # (@flow and @flowpy pass --help to Flow and Python: test_flow.sh)
+  # @help @NAME is the only help: --help is an unknown option that points to
+  # it (@flow and @flowpy pass --help to Flow and Python: test_flow.sh)
   for name in mpi submit wait cancel help; do
     run "$OPMEXEC" -c "@$name" --help
-    assert_rc 0
-    assert_contains "$OUT" "@$name "
-    assert_contains "$OUT" "  --help"
+    assert_rc 1
+    assert_contains "$OUT" "@$name: unknown option: --help (@help @$name shows the options"
   done
+  run "$OPMEXEC" -c @help @submit
+  assert_not_contains "$OUT" "--help"
 }
 
-test_help_option_only_as_first_argument() {
-  # Later, --help belongs to the program, e.g. Python's after @flowpy --
+test_help_after_a_program_is_the_programs() {
   run "$OPMEXEC" --dry-run -c @flowpy -- --help
   assert_contains "$OUT" "run: env PYTHONPATH="
   assert_contains "$OUT" " --help"
-  assert_not_contains "$OUT" "Show this help"
 }
 
 test_help_for_unknown_directive() {
@@ -52,7 +51,7 @@ test_help_for_unknown_directive() {
 }
 
 test_help_long_options_wrap() {
-  run "$OPMEXEC" -c @submit --help
+  run "$OPMEXEC" -c @help @submit
   assert_contains "$OUT" "  --lsf-options, --slurm-options, --pbs-options, --localq-options OPTS
                             Native options"
 }
@@ -65,14 +64,14 @@ opmexec::directive greet "[-t TIMES] [--job ID] NAME" "Greet someone"
 opmexec::directive_option "-t, --times TIMES" text "How often"
 opmexec::directive_option "--job ID" job "A job to mention"
 opmexec::directive_arguments none
-@greet() { opmexec::help_requested greet "$@" && return 0; echo "hello $*"; }
+@greet() { echo "hello $*"; }
 EOD
   export OPMEXEC_DIRECTIVE_PATH="$SANDBOX/directives"
 }
 
 test_extension_directive_help() {
   use_greet_directive
-  run "$OPMEXEC" -c @greet --help
+  run "$OPMEXEC" -c @help @greet
   assert_rc 0
   assert_contains "$OUT" "  -t, --times TIMES  How often"
   assert_contains "$OUT" "Defined in $SANDBOX/directives/greet.sh"
@@ -96,7 +95,7 @@ test_extension_directive_completion() {
       echo "[$line] ${COMPREPLY[*]}"
     done
   )
-  assert_contains "$out" "[@greet -] -t --times --job --help"
+  assert_contains "$out" "[@greet -] -t --times --job"
   assert_contains "$out" "[@greet --job ] localq:7"
   assert_contains "$out" "[@greet x] "
 }

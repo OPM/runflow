@@ -47,10 +47,17 @@ opmexec --jobs=all                       # the jobs, also finished ones
 ## Configuration
 
 opmexec works without configuration: it finds Flow through `PATH` and runs
-jobs in its local queue. To change that, copy `etc/opmexec.conf.example`
-(every setting, explained) to `~/.config/opmexec/opmexec.conf` (for you) or
-`etc/opmexec.conf` in the opmexec directory (for everyone using it), and
-uncomment what you need. The settings used most:
+jobs in its local queue. Every setting, its default and what it does are in
+`etc/defaults/opmexec.conf`. Don't edit that file; copy the lines you change
+into `~/.config/opmexec/opmexec.conf` (for you), or into `etc/opmexec.conf` in
+the opmexec directory (for everyone using it; Git ignores it). The files are
+bash and are read in that order, so yours extends the site's lists with `+=`:
+
+```bash
+OPMEXEC_FLOW_VERSIONS+=('dev=~/opm/build/bin/Release')   # the site's names stay; "dev" is added or redefined
+```
+
+The settings used most:
 
 | Setting | For |
 |---|---|
@@ -59,8 +66,8 @@ uncomment what you need. The settings used most:
 | `OPMEXEC_JOB_SETUP` | what jobs run first, e.g. `module load ...` |
 | `OPMEXEC_MPI_LAUNCHER_LOCAL` | the MPI launcher and its binding |
 
-The environment and opmexec's options win over the files (`man opmexec`,
-CONFIGURATION).
+The environment and opmexec's options win over the files. For installing it
+for a site, see `man opmexec`, CONFIGURATION, "For administrators".
 
 ## Usage
 
@@ -93,7 +100,8 @@ opmexec --dry-run run.sh                        # the jobs it would submit
 | `@help` | lists the directives; `@help @flow` shows the options of one |
 
 `opmexec --shell` starts an interactive bash with the directives, Tab
-completion and notices of finished jobs.
+completion and notices of finished jobs; `opmexec` and `man opmexec` work in
+it even without the `PATH` and `MANPATH` lines above.
 
 **Where things go:** a job's output, unless `@submit -o` names a file, is in
 `~/.local/state/opmexec/logs/localq.HOST.ID.log`; the local queue's state in

@@ -127,7 +127,7 @@ the Flow version for every
 .B @flow
 without
 .BR \-v .
-.BI "@" NAME " \-\-help"
+.BI "@help @" NAME
 shows a directive's settings.
 .TP
 .BI \-\-directives " PATH"
@@ -153,15 +153,11 @@ Print the path of the library and exit (first argument only).
 Show help.
 .SH DIRECTIVES
 .BI "@help @" NAME
-shows a directive's options; so does
-.BI @ NAME " \-\-help\fR,\fP"
-except for
-.B @flow
-and
-.BR @flowpy ,
-which pass
-.B \-\-help
-on to Flow and Python.
+shows a directive's options.
+There is no
+.BI @ NAME " \-\-help\fR:\fP"
+.B "@flow \-\-help"
+is Flow's own help.
 .SS @flow
 .B @flow
 .RB [ \-v
@@ -507,6 +503,12 @@ The prompt shows the scheduler and the Flow version
 not); Tab completes directives, their options, Flow versions, decks and job IDs; finished jobs are reported before the prompt
 .RB ( OPMEXEC_NOTIFY ,
 .BR OPMEXEC_NOTIFY_INTERVAL ).
+.B opmexec
+and its man page are added to
+.B PATH
+and
+.B MANPATH
+if they are not there yet.
 Nothing closes the shell and no traps are set;
 .B @cancel
 needs job IDs or
@@ -545,21 +547,38 @@ under
 .B opmexec
 too.
 .SH CONFIGURATION
-Settings come from, later winning: built-in defaults; the files
-.IR /etc/opmexec/opmexec.conf ,
+Settings come from, later winning:
+.I etc/defaults/opmexec.conf
+in the opmexec directory (every setting, its default and an explanation; not
+edited); the files
+.I /etc/opmexec/opmexec.conf
+(the machine),
 .I etc/opmexec.conf
-in the opmexec directory and
+in the opmexec directory (the site; not part of opmexec's Git repository) and
 .I ~/.config/opmexec/opmexec.conf
-(or only
+(you), or only
 .B OPMEXEC_CONFIG
-if set); the environment; opmexec's options; the directive's options.
+if set; the environment; opmexec's options; the directive's options.
 Options add to
 .BI OPMEXEC_ NAME _OPTIONS\fR;\fP
 everything else is replaced.
-The files are bash assignments; a world-writable one is refused.
-.I etc/opmexec.conf.example
-lists every setting with its default and an explanation.
-The main ones:
+.PP
+The files are bash, read in that order: copy the lines you change from the
+defaults file.
+A list setting is extended with
+.B +=
+and replaced with
+.BR = .
+In
+.B OPMEXEC_FLOW_VERSIONS
+and
+.BR OPMEXEC_FLOW_PYTHON_MAP ,
+the last item of a name (or the last matching pattern) wins, so
+.B +=
+also redefines a name an earlier file set.
+A file that someone besides its owner or root can write (everyone, or a
+group other than the owner's private one) is refused.
+The main settings:
 .TP
 .B OPMEXEC_FLOW_VERSIONS
 Named Flow versions, for builds that share an executable name, as
@@ -567,8 +586,8 @@ Named Flow versions, for builds that share an executable name, as
 items (the executable or its directory), e.g.
 .RS
 .EX
-OPMEXEC_FLOW_VERSIONS=(\(aq2025.04=/opt/opm/2025.04/bin/flow\(aq
-                       \(aqdev=~/opm/build/bin\(aq)
+OPMEXEC_FLOW_VERSIONS=(\(aq2025.04=/opt/opm/2025.04/bin/flow\(aq)   # site
+OPMEXEC_FLOW_VERSIONS+=(\(aqdev=~/opm/build/bin\(aq)                # you
 .EE
 .RE
 .TP
@@ -616,8 +635,53 @@ Shell commands run at the start of every job, e.g. module loads.
 .TP
 .BI OPMEXEC_DEFAULT_QUEUE_ SCHEDULER\fR,\fP " OPMEXEC_LOCALQ_SLOTS"
 Default queues, and localq's slots.
+.SS "For administrators"
+.IP \(bu 2
+Install opmexec once, read-only, at a path that is the same on every node, e.g.
+.IR /shared/apps/opmexec/ VERSION :
+jobs find opmexec and extension directives at the same path.
+.IP \(bu
+Put the site's settings in the installation's
+.IR etc/opmexec.conf :
+named Flow versions, search paths,
+.B OPMEXEC_JOB_SETUP
+(e.g.
+.BR "module load opm/2025.04" ),
+MPI launchers, queues and accounts.
+One file serves every node;
+.I /etc/opmexec/opmexec.conf
+is for what differs between machines, and must be kept on each of them.
+.IP \(bu
+An environment module
+.RB ( "module load opmexec" )
+should only add opmexec to
+.B PATH
+and
+.BR MANPATH .
+Put the site's defaults in the installation's
+.I etc/opmexec.conf
+instead: a setting the module exports, e.g.
+.BR "setenv OPMEXEC_FLOW_VERSION 2025.04" ,
+comes from the environment, which wins over every user's own configuration
+file, so a user's
+.B OPMEXEC_FLOW_VERSION=dev
+in
+.I ~/.config/opmexec/opmexec.conf
+would be silently ignored.
+In
+.IR etc/opmexec.conf ,
+the same default applies to everyone, and users can still override it.
+.IP \(bu
+Nothing is enforced: users override or extend every setting in their own
+file, e.g. their builds before the site's with
+.BR "OPMEXEC_FLOW_BIN_PATHS=(~/opm/bin \(dq${OPMEXEC_FLOW_BIN_PATHS[@]}\(dq)" .
+Limits belong to the scheduler.
 .SH ENVIRONMENT
-Every setting can also be set in the environment, and:
+Every setting can also be set in the environment, except the lists
+.RB ( OPMEXEC_FLOW_VERSIONS ,
+.BR OPMEXEC_FLOW_BIN_PATHS ,
+.BR OPMEXEC_FLOW_PYTHON_MAP :
+bash cannot export them), and:
 .TP
 .B OPMEXEC_CONFIG
 The only configuration file to read.
@@ -640,6 +704,9 @@ Your configuration; also
 and
 .I etc/opmexec.conf
 in the opmexec directory.
+.TP
+.I etc/defaults/opmexec.conf
+In the opmexec directory: every setting, its default and an explanation.
 .TP
 .I ~/.config/opmexec/directives/
 Your extension directives.

@@ -22,7 +22,7 @@ opmexec::install_hint() {
 }
 
 # Configuration, later wins (see opmexec(1), CONFIGURATION):
-#   1. built-in defaults (lib/defaults.sh);
+#   1. the defaults, etc/defaults/opmexec.conf (opmexec's own: not edited);
 #   2. the configuration files /etc/opmexec/opmexec.conf, then
 #      <installation>/etc/opmexec.conf, then
 #      ${XDG_CONFIG_HOME:-~/.config}/opmexec/opmexec.conf;
@@ -30,7 +30,8 @@ opmexec::install_hint() {
 #   3. settings already set when the library loads: the environment, or a
 #      script that sets them before sourcing (jobs get theirs this way);
 #   4. opmexec options and opmexec::setup; 5. the directive's own options.
-# Configuration files are bash; world-writable ones are refused.
+# Configuration files are bash, sourced by everyone who runs opmexec: a file
+# someone besides its owner (or root) can write is refused (see below).
 if [[ -z "${_OPMEXEC_CONFIG_LOADED:-}" ]]; then
   if [[ -n "${OPMEXEC_CONFIG:-}" && "$OPMEXEC_CONFIG" != /* ]]; then
     OPMEXEC_CONFIG="$PWD/$OPMEXEC_CONFIG"  # absolute: jobs get it too
@@ -40,7 +41,7 @@ if [[ -z "${_OPMEXEC_CONFIG_LOADED:-}" ]]; then
   [[ -z "$_OPMEXEC_NAMES" ]] || _OPMEXEC_PRESET=$(declare -p $_OPMEXEC_NAMES 2> /dev/null)
   unset _OPMEXEC_NAMES
 
-  source "$(dirname "${BASH_SOURCE[0]}")/defaults.sh"
+  source "$(dirname "${BASH_SOURCE[0]}")/../etc/defaults/opmexec.conf"
 
   if [[ -n "${OPMEXEC_CONFIG:-}" ]]; then
     if [[ ! -f "$OPMEXEC_CONFIG" ]]; then
@@ -58,8 +59,20 @@ if [[ -z "${_OPMEXEC_CONFIG_LOADED:-}" ]]; then
 
   for _OPMEXEC_FILE in "${_OPMEXEC_CONFIG_FILES[@]}"; do
     [[ -f "$_OPMEXEC_FILE" ]] || continue
-    if [[ -n "$(find "$_OPMEXEC_FILE" -maxdepth 0 -perm -0002 2> /dev/null)" ]]; then
-      echo "[ERROR] Configuration file is writable by everyone, not reading it: $_OPMEXEC_FILE" >&2
+    # Writable by everyone, or by a group other than the owner's own (a
+    # private group named like the user, as most Linux systems create) is
+    # refused: its writers could run code as everyone who reads it. ls
+    # shows an ACL's mask as the group bits, so ACL writers count too.
+    read -r _OPMEXEC_MODE _ _OPMEXEC_OWNER _OPMEXEC_GROUP _ <<< "$(ls -ld "$_OPMEXEC_FILE" 2> /dev/null)"
+    if [[ "${_OPMEXEC_MODE:8:1}" == w ]]; then
+      _OPMEXEC_WRITERS=everyone
+    elif [[ "${_OPMEXEC_MODE:5:1}" == w && "$_OPMEXEC_GROUP" != "$_OPMEXEC_OWNER" ]]; then
+      _OPMEXEC_WRITERS="group $_OPMEXEC_GROUP"
+    else
+      _OPMEXEC_WRITERS=""
+    fi
+    if [[ -n "$_OPMEXEC_WRITERS" ]]; then
+      echo "[ERROR] Configuration file is writable by $_OPMEXEC_WRITERS, not reading it: $_OPMEXEC_FILE (chmod go-w on it)" >&2
       return 1 2>/dev/null || exit 1
     fi
     source "$_OPMEXEC_FILE" || {
@@ -74,7 +87,7 @@ if [[ -z "${_OPMEXEC_CONFIG_LOADED:-}" ]]; then
   # Derived defaults
   OPMEXEC_LOG_DIR="${OPMEXEC_LOG_DIR:-$OPMEXEC_STATE_DIR/logs}"
 
-  unset _OPMEXEC_PRESET _OPMEXEC_CONFIG_FILES _OPMEXEC_FILE
+  unset _OPMEXEC_PRESET _OPMEXEC_CONFIG_FILES _OPMEXEC_FILE _OPMEXEC_MODE _OPMEXEC_OWNER _OPMEXEC_GROUP _OPMEXEC_WRITERS
   _OPMEXEC_CONFIG_LOADED=true
 fi
 

@@ -62,22 +62,57 @@ opmexec::quoted() {
   echo "${q% }"
 }
 
-# Split an option string into words with shell-style quoting: quotes and
-# backslashes are honoured, nothing is expanded or executed (no eval).
+# Split an option string into words with shell quoting, in plain bash (no
+# xargs: BSD and GNU differ; nothing is expanded or executed, no eval):
+#   '...'   literal;  "..."  a backslash escapes " \ $ ` only;
+#   outside quotes: a backslash escapes the next character, whitespace
+#   separates words; '' and "" are empty words.
 # Usage: opmexec::split_options "STRING" [WHAT]  -> words in _OPMEXEC_WORDS;
-# returns 1, naming WHAT, for unbalanced quotes
+# returns 1, naming WHAT, for an unclosed quote or a trailing backslash
 opmexec::split_options() {
-  local string="$1" what="${2:-options}" word
+  local string="$1" what="${2:-options}" word="" quote="" in_word=false c i
   _OPMEXEC_WORDS=()
-  [[ -n "${string//[[:space:]]/}" ]] || return 0
 
-  if ! printf '%s' "$string" | xargs printf '' 2> /dev/null; then
+  for (( i = 0; i < ${#string}; i++ )); do
+    c=${string:i:1}
+    if [[ "$quote" == "'" ]]; then
+      if [[ "$c" == "'" ]]; then quote=""; else word+=$c; fi
+    elif [[ "$quote" == '"' ]]; then
+      if [[ "$c" == '"' ]]; then
+        quote=""
+      elif [[ "$c" == '\' && "${string:i+1:1}" == [\"\\\$\`] ]]; then
+        word+=${string:i+1:1}
+        (( i++ ))
+      else
+        word+=$c
+      fi
+    else
+      case "$c" in
+        [[:space:]])
+          $in_word && _OPMEXEC_WORDS+=("$word")
+          word="" in_word=false
+          ;;
+        \'|\") quote=$c in_word=true ;;
+        \\)
+          if (( i + 1 >= ${#string} )); then
+            opmexec::error "Trailing backslash in $what: $string"
+            _OPMEXEC_WORDS=()
+            return 1
+          fi
+          word+=${string:i+1:1} in_word=true
+          (( i++ ))
+          ;;
+        *) word+=$c in_word=true ;;
+      esac
+    fi
+  done
+
+  if [[ -n "$quote" ]]; then
     opmexec::error "Unbalanced quotes in $what: $string"
+    _OPMEXEC_WORDS=()
     return 1
   fi
-  while IFS= read -r -d '' word; do
-    _OPMEXEC_WORDS+=("$word")
-  done < <(printf '%s' "$string" | xargs printf '%s\0')
+  ! $in_word || _OPMEXEC_WORDS+=("$word")
 }
 
 # Scheduler named by a --<scheduler>-options option (e.g. --slurm-options ->
@@ -179,7 +214,7 @@ opmexec::directive() {
   _OPMEXEC_LAST_DIRECTIVE="$name"
 }
 
-# Declare an option of the directive registered last, for @help, --help and
+# Declare an option of the directive registered last, for @help and
 # Tab completion (the directive still parses its arguments itself):
 #   opmexec::directive_option "NAMES [VALUE]" KIND "DESCRIPTION"
 # NAMES are the spellings, comma-separated ("-v, --flow-version"); VALUE names the
@@ -278,17 +313,20 @@ opmexec::load_module() {
   done
 }
 
-# Load every *.sh module of a directory (or one file), in name order
+# Load every *.sh module of a directory (or one file), in name order: byte
+# order, whatever the locale (en_US sorts flowpy.sh before flow.sh), so @help
+# and the messages list directives the same way everywhere
 opmexec::load_modules() {
-  local path="$1" kind="${2:-extension}" file
+  local path="$1" kind="${2:-extension}" file files
 
   if [[ -f "$path" ]]; then
     opmexec::load_module "$path" "$kind"
     return
   fi
-  for file in "$path"/*.sh; do
+  files=$(LC_COLLATE=C; printf '%s\n' "$path"/*.sh)
+  while IFS= read -r file; do
     [[ -f "$file" ]] && opmexec::load_module "$file" "$kind"
-  done
+  done <<< "$files"
 }
 
 # Load extension modules (directories or files) into this workflow, and add
@@ -361,9 +399,6 @@ opmexec::directive_details() {
     rows+=("$spec"$'\t'"$description")
     (( ${#spec} > width )) && width=${#spec}
   done <<< "${_OPMEXEC_DIRECTIVE_OPTION_LIST[$name]}"
-  # --help, unless the directive passes it on to its program (e.g. @flow)
-  [[ " $(opmexec::option_names "$(cut -f1 <<< "${_OPMEXEC_DIRECTIVE_OPTION_LIST[$name]}" | tr '\n' ' ')") " == *" --help "* ]] ||
-    rows+=("--help"$'\t'"Show this help")
 
   if [[ -n "${_OPMEXEC_DIRECTIVE_OPTIONS[$name]}" ]]; then
     defaults+=("--$name-options OPTS"$'\t'"${_OPMEXEC_DIRECTIVE_OPTIONS[$name]}")
@@ -379,8 +414,10 @@ opmexec::directive_details() {
   done
   (( width <= 24 )) || width=24
 
-  printf '\nOptions:\n'
-  opmexec::print_rows "$width" "${rows[@]}"
+  if [[ ${#rows[@]} -gt 0 ]]; then
+    printf '\nOptions:\n'
+    opmexec::print_rows "$width" "${rows[@]}"
+  fi
   if [[ ${#defaults[@]} -gt 0 ]]; then
     printf '\nDefaults for every @%s (options of opmexec and opmexec::setup):\n' "$name"
     opmexec::print_rows "$width" "${defaults[@]}"
@@ -423,12 +460,13 @@ opmexec::print_rows() {
   done
 }
 
-# For directives: show the help of @NAME and return 0 if its arguments start
-# with --help; return 1 otherwise. A directive starts with
-#   opmexec::help_requested NAME "$@" && return 0
-opmexec::help_requested() {
-  [[ "${2:-}" == --help ]] || return 1
-  opmexec::directive_details "$1"
+# For directives: report an option @NAME does not take, pointing to its help
+# (@help @NAME is the only help: @NAME --help would be ambiguous for
+# directives such as @flow, whose options go to their program).
+# Usage: opmexec::unknown_option NAME OPTION [HINT]; returns 1
+opmexec::unknown_option() {
+  opmexec::error "@$1: unknown option: $2 (@help @$1 shows the options${3:+; $3})"
+  return 1
 }
 
 # --- Workflow setup ------------------------------------------------------------

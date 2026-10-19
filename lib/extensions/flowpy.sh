@@ -12,8 +12,6 @@ opmexec::directive_setting flowpy-version OPMEXEC_FLOWPY_VERSION \
   "Flow version whose Python every @flowpy without -v uses (default: --flow-version)" version
 opmexec::directive_option "-v, --flow-version VERSION" version \
   "Flow version whose Python and opm bindings to use (as for @flow; default: --flowpy-version, else --flow-version)"
-opmexec::directive_option "--help, --version" - \
-  "Python's own (everything else goes to Python too); opmexec's help on @flowpy: @help @flowpy"
 opmexec::directive_option "--" - \
   "End of @flowpy's options: the rest goes to Python"
 opmexec::directive_arguments file

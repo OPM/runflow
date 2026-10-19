@@ -8,11 +8,13 @@ opmexec::directive_arguments job
 # Cancel job(s); --all (or no args, except in interactive shells): cancel this
 # session's pending/running jobs
 @cancel() {
-  opmexec::help_requested cancel "$@" && return 0
   local jobid status rc=0 all=false
   local jobids=("$@")
   
-  if [[ "${1:-}" == --all ]]; then
+  if [[ "${1:-}" == -* && "$1" != --all ]]; then
+    opmexec::unknown_option cancel "$1"
+    return 1
+  elif [[ "${1:-}" == --all ]]; then
     all=true
     shift
     jobids=("$@")

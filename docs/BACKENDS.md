@@ -17,7 +17,7 @@ them, while `--dry-run -s NAME` already works.
 2. In `lib/config.sh`, add the scheduler to `opmexec::validate_scheduler` and
    `opmexec::get_default_queue`. If it can be auto-detected, also add it to
    `opmexec::detect_scheduler`, before the fallback to localq.
-3. In `lib/defaults.sh`, and commented in `etc/opmexec.conf.example`, add:
+3. In `etc/defaults/opmexec.conf`, with their comments, add:
    - `OPMEXEC_DEFAULT_QUEUE_<SCHEDULER>=''` (empty: the scheduler's default);
    - `OPMEXEC_<SCHEDULER>_OPTIONS=''`;
    - `OPMEXEC_MPI_LAUNCHER_<SCHEDULER>='...'`.

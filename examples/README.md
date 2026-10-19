@@ -89,7 +89,7 @@ build tree's Release and Debug builds, are told apart by names in the
 configuration, `~/.config/opmexec/opmexec.conf`:
 
 ```bash
-OPMEXEC_FLOW_VERSIONS=('2025.04=/opt/opm/2025.04/bin/flow' 'dev=~/opm/build/bin/Release')
+OPMEXEC_FLOW_VERSIONS+=('2025.04=/opt/opm/2025.04/bin/flow' 'dev=~/opm/build/bin/Release')
 ```
 
 The version every `@flow` without `-v` uses is chosen from outside too, for

@@ -19,6 +19,35 @@ EOF
   assert_contains "$OUT" "np=3 version=flowrc47 @flow=function"
 }
 
+test_shell_finds_opmexec_and_its_man_page() {
+  # PATH without opmexec, MANPATH unset: both are added, the system's man
+  # pages kept (trailing ":"); a second source adds nothing
+  export PATH=${PATH//":$ROOT:"/:}
+  unset MANPATH
+  run_shell << 'EOF'
+echo "opmexec=$(command -v opmexec)"
+echo "manpath=[$MANPATH]"
+source opmexec.bash
+echo "path-entries=$(tr : '\n' <<< "$PATH" | grep -cx "$OPMEXEC_HOME")"
+EOF
+  assert_rc 0
+  assert_contains "$OUT" "opmexec=$ROOT/opmexec"
+  assert_contains "$OUT" "manpath=[$ROOT/man:]"
+  assert_contains "$OUT" "path-entries=1"
+  if command -v man > /dev/null && man -w man > /dev/null 2>&1; then
+    run_shell <<< 'man -w opmexec; man -w man > /dev/null && echo system-pages-kept'
+    assert_contains "$OUT" "$ROOT/man/man1/opmexec.1"
+    assert_contains "$OUT" "system-pages-kept"
+  fi
+}
+
+test_scripts_keep_their_path() {
+  export PATH=${PATH//":$ROOT:"/:}
+  unset MANPATH
+  run bash -c 'source "$1/opmexec.bash"; echo "path-has-opmexec=$(command -v opmexec || echo no) manpath=[${MANPATH-unset}]"' _ "$ROOT"
+  assert_contains "$OUT" "path-has-opmexec=no manpath=[unset]"
+}
+
 test_shell_takes_no_script() {
   run "$OPMEXEC" --shell workflow.sh
   assert_rc 1
@@ -161,7 +190,7 @@ test_complete_flow_decks() {
 }
 
 test_complete_nearest_directive_options() {
-  assert_eq "$(complete_line '@submit -n 4 @mpi @flow -' | tr '\n' ' ')" "-v --flow-version -l --list -w --which --help --version -- "
+  assert_eq "$(complete_line '@submit -n 4 @mpi @flow -' | tr '\n' ' ')" "-v --flow-version -l --list -w --which -- "
   assert_eq "$(complete_line '@submit --sch')" "--scheduler"
   assert_eq "$(complete_line '@submit --scheduler l' | tr '\n' ' ')" "lsf localq "
 }

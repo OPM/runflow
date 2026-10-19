@@ -17,7 +17,6 @@ opmexec::directive_arguments command
 # Submit a job (non-blocking, prints the qualified job ID, e.g. localq:12);
 # to wait for it as well: @wait @submit ...
 @submit() {
-  opmexec::help_requested submit "$@" && return 0
   opmexec::ensure_state_dirs
   
   local scheduler command np queue depends_on output_file name
@@ -49,7 +48,7 @@ opmexec::directive_arguments command
       -o|--output) opmexec::has_value @submit "$@" || return 1; output_file="$2"; shift 2 ;;
       --) shift; break ;;
       -*)
-        opmexec::error "@submit: unknown option: $1 (use -- before a command that starts with -)"
+        opmexec::unknown_option submit "$1" "use -- before a command that starts with -"
         return 1
         ;;
       *) break ;;

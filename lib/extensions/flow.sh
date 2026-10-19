@@ -4,7 +4,7 @@
 # OPMEXEC_DIRECTIVE_PATH may replace it). @flowpy is in flowpy.sh.
 #
 # Settings: OPMEXEC_FLOW_BIN_PATHS, OPMEXEC_FLOW_VERSION,
-# OPMEXEC_FLOW_PYTHONPATH, OPMEXEC_FLOW_PYTHON_MAP (see lib/defaults.sh)
+# OPMEXEC_FLOW_PYTHONPATH, OPMEXEC_FLOW_PYTHON_MAP (see etc/defaults/opmexec.conf)
 
 opmexec::directive flow "[-v VERSION] [FLOW_ARGUMENTS...]  |  -l [VERSION]  |  -w [VERSION]" \
   "Run Flow as one process, its arguments as for flow (-l: list versions, -w: the executable); with MPI: @mpi @flow" \
@@ -17,8 +17,6 @@ opmexec::directive_option "-l, --list [VERSION]" version \
   "List the Flow versions with their build and Python (* the default); -l VERSION: everything about one"
 opmexec::directive_option "-w, --which [VERSION]" version \
   "Print the executable of a version (default: the default one), e.g. ldd \"\$(@flow -w)\""
-opmexec::directive_option "--help, --version" - \
-  "Flow's own (everything else goes to Flow too); opmexec's help on @flow: @help @flow"
 opmexec::directive_option "--" - \
   "End of @flow's options: the rest goes to Flow"
 opmexec::directive_arguments deck
@@ -67,16 +65,24 @@ opmexec::flow::opm_version() {
   fi
 }
 
-# A named version's executable (OPMEXEC_FLOW_VERSIONS: 'NAME=PATH' items; PATH
-# an executable or the directory holding flow, ~/ for HOME), or nothing
+# The executable of one OPMEXEC_FLOW_VERSIONS item 'NAME=PATH' (PATH an
+# executable or the directory holding flow, ~/ for HOME)
+opmexec::flow::entry_path() {
+  local path=${1#*=}
+  [[ "$path" != "~/"* ]] || path="$HOME/${path#"~/"}"
+  [[ ! -d "$path" ]] || path="${path%/}/flow"
+  echo "$path"
+}
+
+# A named version's executable, or nothing. The LAST item of a name wins, as
+# a later configuration file wins: OPMEXEC_FLOW_VERSIONS+=('NAME=PATH') in a
+# user's file redefines a site's NAME.
 opmexec::flow::named_path() {
-  local entry path
-  for entry in "${OPMEXEC_FLOW_VERSIONS[@]}"; do
+  local i entry
+  for (( i = ${#OPMEXEC_FLOW_VERSIONS[@]} - 1; i >= 0; i-- )); do
+    entry=${OPMEXEC_FLOW_VERSIONS[i]}
     [[ "${entry%%=*}" == "$1" && "$entry" == *=* ]] || continue
-    path=${entry#*=}
-    [[ "$path" != "~/"* ]] || path="$HOME/${path#"~/"}"
-    [[ ! -d "$path" ]] || path="${path%/}/flow"
-    echo "$path"
+    opmexec::flow::entry_path "$entry"
     return 0
   done
   return 1
@@ -289,9 +295,12 @@ opmexec::flow::build_summary() {
 # Configured Python version of a Flow version (OPMEXEC_FLOW_PYTHON_MAP), or
 # nothing
 opmexec::flow::python_map() {
-  local version="$1" pattern
+  local version="$1" pattern i
 
-  for pattern in "${OPMEXEC_FLOW_PYTHON_MAP[@]}"; do
+  # The last matching item wins, as for OPMEXEC_FLOW_VERSIONS: += in a later
+  # configuration file adds or overrides
+  for (( i = ${#OPMEXEC_FLOW_PYTHON_MAP[@]} - 1; i >= 0; i-- )); do
+    pattern=${OPMEXEC_FLOW_PYTHON_MAP[i]}
     # shellcheck disable=SC2053  # pattern match on purpose
     if [[ "$version" == ${pattern%:*} ]]; then
       echo "${pattern##*:}"
@@ -592,10 +601,14 @@ opmexec::flow::list_versions() {
   local dir exe entry i batch result fields=() rows=() groups=() names=() exes=() found=false
   local -A first=()
 
-  for entry in "${OPMEXEC_FLOW_VERSIONS[@]}"; do
+  local -A last=()   # name -> index of its last item, the one used
+  for i in "${!OPMEXEC_FLOW_VERSIONS[@]}"; do
+    entry=${OPMEXEC_FLOW_VERSIONS[i]}
+    [[ "$entry" == *=* ]] || continue
     groups+=("Named versions (OPMEXEC_FLOW_VERSIONS)")
     names+=("${entry%%=*}")
-    exes+=("$(opmexec::flow::named_path "${entry%%=*}")")
+    exes+=("$(opmexec::flow::entry_path "$entry")")
+    last[${entry%%=*}]=$(( ${#exes[@]} - 1 ))
   done
   while IFS= read -r dir; do
     for exe in "$dir"/flow*; do
@@ -616,6 +629,8 @@ opmexec::flow::list_versions() {
     for i in "${!exes[@]}"; do
       (
         exe=${exes[i]}
+        # A name's earlier items are not used: not probed
+        [[ "${groups[i]}" == /* || "${last[${names[i]}]}" == "$i" ]] || exit
         [[ -f "$exe" && -x "$exe" ]] || { printf '%s\t!\n' "$i"; exit; }
         if opmexec::flow::build_info "$exe"; then
           opmexec::flow::python_info "${names[i]}" "$exe"
@@ -630,19 +645,23 @@ opmexec::flow::list_versions() {
     wait
   )
 
-  # Rows: GROUP, NAME, then the fields or a note; the first OPM Flow of each
-  # name in the search directories is used. "*" before the name marks the
+  # Rows: GROUP, NAME, then the fields or a note; the last item of a name in
+  # OPMEXEC_FLOW_VERSIONS, and the first OPM Flow of each name in the search
+  # directories, are used. "*" before the name marks the
   # default version (OPMEXEC_FLOW_VERSION).
   local default="" marked=false
   opmexec::flow::find "$OPMEXEC_FLOW_VERSION" && default=$_OPMEXEC_FLOW_FOUND
   for i in "${!exes[@]}"; do
     result=${results[i]:--}
-    if [[ "$result" == '!' ]]; then
+    if [[ "${groups[i]}" != /* && "${last[${names[i]}]}" != "$i" ]]; then
+      result="redefined by a later item (or configuration file): ${exes[i]}"
+    elif [[ "$result" == '!' ]]; then
       result="executable not found: ${exes[i]}"
     elif [[ "$result" == - ]]; then
       result="not OPM Flow, ignored"
     elif [[ "${groups[i]}" == /* && -n "${first[${names[i]}]:-}" ]]; then
       result="shadowed by ${first[${names[i]}]}"
+
     else
       found=true
       [[ "${groups[i]}" != /* ]] || first[${names[i]}]=${exes[i]}

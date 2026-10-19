@@ -46,6 +46,35 @@ EOF
   assert_contains "$OUT" "exe=$HOME/opm/bin/flow"
 }
 
+test_last_item_of_a_name_wins() {
+  # A site's list, then a user's += : new names are added, a name defined
+  # again is redefined; the listing shows which item is no longer used
+  mkdir -p "$SANDBOX/site" "$SANDBOX/user" "$SANDBOX/old"
+  cp "$SANDBOX/bin/flowtest" "$SANDBOX/site/flow"
+  cp "$SANDBOX/bin/flowtest" "$SANDBOX/user/flow"
+  cp "$SANDBOX/bin/flowtest" "$SANDBOX/old/flow"
+  cat >> "$OPMEXEC_CONFIG" << EOF
+OPMEXEC_FLOW_VERSIONS=('stable=$SANDBOX/site' 'old=$SANDBOX/old')
+OPMEXEC_FLOW_VERSIONS+=('stable=$SANDBOX/user' 'dev=$SANDBOX/user')
+EOF
+  run "$OPMEXEC" -c @flow -v stable A.DATA
+  assert_contains "$OUT" "exe=$SANDBOX/user/flow"
+  run "$OPMEXEC" -c @flow -v old A.DATA
+  assert_contains "$OUT" "exe=$SANDBOX/old/flow"
+  run "$OPMEXEC" -c @flow -l
+  assert_contains "$OUT" "  stable    redefined by a later item (or configuration file): $SANDBOX/site/flow"
+  [[ "$OUT" =~ "  stable    2099.10"[^$'\n']*"$SANDBOX/user/flow" ]] || fail "no row for the stable used"
+}
+
+test_last_matching_python_map_item_wins() {
+  source "$ROOT/lib/opmexec.sh" > /dev/null 2>&1
+  OPMEXEC_FLOW_PYTHON_MAP=('flow*:3.11' 'dev:3.12')
+  OPMEXEC_FLOW_PYTHON_MAP+=('flow2025*:3.13')
+  assert_eq "$(opmexec::flow::python_map flow2025.04)" 3.13
+  assert_eq "$(opmexec::flow::python_map flow2024.10)" 3.11
+  assert_eq "$(opmexec::flow::python_map dev)" 3.12
+}
+
 test_named_versions_win_over_executable_names() {
   mkdir -p "$SANDBOX/other"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/other/flow"

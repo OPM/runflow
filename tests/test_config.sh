@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Configuration: built-in defaults, the configuration files and their order,
+# Configuration: the defaults file, the configuration files and their order,
 # OPMEXEC_CONFIG, the environment's precedence, standard file locations.
 # (The /etc file is not tested: it needs root.)
 
@@ -8,6 +8,7 @@
 use_installation_copy() {
   mkdir -p "$SANDBOX/install/etc"
   cp -r "$ROOT/opmexec" "$ROOT/opmexec.bash" "$ROOT/lib" "$SANDBOX/install/"
+  cp -r "$ROOT/etc/defaults" "$SANDBOX/install/etc/"
   OPMEXEC="$SANDBOX/install/opmexec"
   unset OPMEXEC_CONFIG
   export XDG_CONFIG_HOME="$SANDBOX/xdg-config" XDG_STATE_HOME="$SANDBOX/xdg-state"
@@ -48,6 +49,18 @@ test_installation_file_then_user_file() {
   printf '%s\n' "OPMEXEC_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/opmexec/opmexec.conf"
   assert_eq "$(setting OPMEXEC_FLOW_VERSION)" mine
   assert_eq "$(setting OPMEXEC_JOB_SETUP)" site-setup
+}
+
+test_user_file_extends_site_lists() {
+  # += in the user's file keeps the site's items; = replaces them
+  use_installation_copy
+  printf '%s\n' "OPMEXEC_FLOW_VERSIONS=('stable=/site/flow')" "OPMEXEC_FLOW_BIN_PATHS=(/site/bin PATH)" \
+    > "$SANDBOX/install/etc/opmexec.conf"
+  printf '%s\n' "OPMEXEC_FLOW_VERSIONS+=('dev=/mine/flow')" \
+    'OPMEXEC_FLOW_BIN_PATHS=(/mine/bin "${OPMEXEC_FLOW_BIN_PATHS[@]}")' \
+    > "$XDG_CONFIG_HOME/opmexec/opmexec.conf"
+  run "$OPMEXEC" -c bash -c 'source "$1/lib/opmexec.sh"; echo "versions=${OPMEXEC_FLOW_VERSIONS[*]} paths=${OPMEXEC_FLOW_BIN_PATHS[*]}"' _ "$SANDBOX/install"
+  assert_contains "$OUT" "versions=stable=/site/flow dev=/mine/flow paths=/mine/bin /site/bin PATH"
 }
 
 test_opmexec_config_replaces_the_files() {
@@ -101,6 +114,35 @@ test_world_writable_configuration_is_refused() {
   assert_contains "$OUT" "Configuration file is writable by everyone, not reading it: $XDG_CONFIG_HOME/opmexec/opmexec.conf"
 }
 
+test_group_writable_configuration_is_refused() {
+  # Writable by a group other than the owner's private one: its members could
+  # run code as everyone reading the file
+  local file group
+  use_installation_copy
+  file="$SANDBOX/install/etc/opmexec.conf"
+  for group in $(id -Gn); do
+    [[ "$group" != "$(id -un)" ]] && break
+  done
+  [[ -n "$group" && "$group" != "$(id -un)" ]] || skip "no group besides a private one"
+  printf '%s\n' "OPMEXEC_FLOW_VERSION=site" > "$file"
+  chgrp "$group" "$file" && chmod g+w "$file" || skip "cannot change the file's group"
+  run "$OPMEXEC" -c true
+  assert_rc 1
+  assert_contains "$OUT" "Configuration file is writable by group $group, not reading it: $file (chmod go-w on it)"
+
+  chmod g-w "$file"
+  assert_eq "$(setting OPMEXEC_FLOW_VERSION)" site
+}
+
+test_private_group_writable_configuration_is_read() {
+  # umask 002 with a group named like the user (most Linux systems)
+  use_installation_copy
+  [[ "$(id -gn)" == "$(id -un)" ]] || skip "no private group"
+  printf '%s\n' "OPMEXEC_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/opmexec/opmexec.conf"
+  chmod g+w "$XDG_CONFIG_HOME/opmexec/opmexec.conf"
+  assert_eq "$(setting OPMEXEC_FLOW_VERSION)" mine
+}
+
 test_missing_opmexec_config_fails() {
   export OPMEXEC_CONFIG="$SANDBOX/nope.conf"
   run "$OPMEXEC" -c true
@@ -108,10 +150,22 @@ test_missing_opmexec_config_fails() {
   assert_contains "$OUT" "Configuration file not found: $SANDBOX/nope.conf (OPMEXEC_CONFIG)"
 }
 
-test_template_lists_every_default() {
-  # Every setting of lib/defaults.sh appears in the template
-  local name
-  for name in $(grep -oE '^OPMEXEC_[A-Z_]+' "$ROOT/lib/defaults.sh"); do
-    grep -q "^#$name=" "$ROOT/etc/opmexec.conf.example" || fail "template lacks $name"
-  done
+test_defaults_file_explains_every_setting() {
+  # Each group of settings in etc/defaults/opmexec.conf follows a comment,
+  # and it sets only OPMEXEC_ settings
+  local problems
+  problems=$(awk '
+    /^OPMEXEC_[A-Z_]+=/ { if (prev !~ /^#/ && prev !~ /^OPMEXEC_/ && prev !~ /^ /) print "no comment before " $0; prev = $0; next }
+    /^[^#[:space:]]/ && !/^OPMEXEC_/ { print "not a setting: " $0 }
+    { prev = $0 }' "$ROOT/etc/defaults/opmexec.conf")
+  [[ -z "$problems" ]] || fail "$problems"
+}
+
+test_site_configuration_is_not_tracked() {
+  # The site's file is edited by each installation: git pull never touches it
+  require_cmd git
+  # (the sandbox's HOME has no safe.directory for a checkout another user owns)
+  local git=(git -c "safe.directory=$ROOT" -C "$ROOT")
+  "${git[@]}" rev-parse 2> /dev/null || skip "not a Git checkout"
+  "${git[@]}" check-ignore -q etc/opmexec.conf || fail "etc/opmexec.conf is not ignored by Git"
 }

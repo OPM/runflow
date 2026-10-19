@@ -30,6 +30,50 @@ test_scheduler_options_reject_unbalanced_quotes() {
   assert_contains "$OUT" "Unbalanced quotes in --slurm-options"
 }
 
+# "STRING" then the expected words, each in brackets
+split_case() {
+  local expected="$2" got=""
+  opmexec::split_options "$1" test || { fail "rejected: $1"; return; }
+  [[ ${#_OPMEXEC_WORDS[@]} -eq 0 ]] || got=$(printf '[%s]' "${_OPMEXEC_WORDS[@]}")
+  [[ "$got" == "$expected" ]] || fail "split of <$1>: expected $expected, got $got"
+}
+
+test_split_options_follows_shell_quoting() {
+  source "$ROOT/lib/opmexec.sh"
+  split_case "" ""
+  split_case "   " ""
+  split_case "mpirun -np 1" "[mpirun][-np][1]"
+  split_case "  a   b  " "[a][b]"
+  split_case "--a='x y' --b=\"p q\" --c=r\\ s" "[--a=x y][--b=p q][--c=r s]"
+  split_case "'it''s' \"\" ''" "[its][][]"
+  split_case "'a \"b\" \\c'" "[a \"b\" \\c]"
+  split_case "\"\\\" \\\\ \\\$ \\\` \\n\"" "[\" \\ \$ \` \\n]"
+  split_case "a\\'b \$HOME *" "[a'b][\$HOME][*]"
+  split_case "x\"y z\"w" "[xy zw]"
+  split_case $'a\tb\nc' "[a][b][c]"
+}
+
+test_split_options_rejects_unclosed_quotes_and_trailing_backslash() {
+  source "$ROOT/lib/opmexec.sh"
+  local s
+  for s in "'a" "\"a" "a 'b\" c" "\"a\\\""; do
+    opmexec::split_options "$s" test 2> err.txt && fail "accepted: $s"
+    grep -q "Unbalanced quotes in test" err.txt || fail "message for: $s"
+    [[ ${#_OPMEXEC_WORDS[@]} -eq 0 ]] || fail "words left for: $s"
+  done
+  opmexec::split_options "a\\" test 2> err.txt && fail "accepted a trailing backslash"
+  grep -q "Trailing backslash in test" err.txt || fail "message for a trailing backslash"
+  return 0
+}
+
+test_split_options_needs_no_external_commands() {
+  # BSD xargs and printf behave differently: the parser uses neither
+  source "$ROOT/lib/opmexec.sh"
+  local PATH="$SANDBOX/empty"
+  mkdir -p "$PATH"
+  split_case "mpirun --bind-to 'no ne' -np 1" "[mpirun][--bind-to][no ne][-np][1]"
+}
+
 test_scheduler_options_ignored_by_localq() {
   require_localq
   run "$OPMEXEC" -c @wait @submit --slurm-options "--time=1:00" --lsf-options "-W 1:00" true
@@ -113,6 +157,6 @@ test_help_shows_directive_options() {
   run "$OPMEXEC" -c @help @flow
   assert_contains "$OUT" "--flow-options OPTS"
   assert_contains "$OUT" "Flow options for every @flow"
-  run "$OPMEXEC" -c @mpi --help
+  run "$OPMEXEC" -c @help @mpi
   assert_contains "$OUT" "MPI launcher options for every @mpi"
 }

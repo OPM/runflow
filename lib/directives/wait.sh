@@ -16,11 +16,13 @@ opmexec::directive_arguments job
 # status is returned without waiting. Waits for every job; returns 1 if any of
 # them did not complete successfully.
 @wait() {
-  opmexec::help_requested wait "$@" && return 0
   local jobid rc=0 output line
   local jobids=("$@")
-  
-  if [[ "${1:-}" == @* ]]; then
+
+  if [[ "${1:-}" == -* ]]; then
+    opmexec::unknown_option wait "$1"
+    return 1
+  elif [[ "${1:-}" == @* ]]; then
     output=$("$@") || return
     # Job IDs are the lines of the form SCHEDULER:ID (as @submit prints them);
     # all output is passed through

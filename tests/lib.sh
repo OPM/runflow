@@ -32,7 +32,7 @@ OPMEXEC_SCHEDULER=$TEST_SCHEDULER
 OPMEXEC_FLOW_BIN_PATHS=("$SANDBOX/bin")
 OPMEXEC_FLOW_VERSION=flowtest
 OPMEXEC_FLOW_PYTHONPATH="$SANDBOX/lib/python{python}/site-packages/{version}"
-OPMEXEC_FLOW_PYTHON_MAP=('flowrc4[7-9]:3.12' 'flow*:3.11')
+OPMEXEC_FLOW_PYTHON_MAP=('flow*:3.11' 'flowrc4[7-9]:3.12')   # the last match wins
 EOF
   
   export SANDBOX TEST_SCHEDULER

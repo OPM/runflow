@@ -5,7 +5,7 @@
 # shell; this run's jobs are those submitted from this shell.
 #
 # Settings: OPMEXEC_PROMPT, OPMEXEC_NOTIFY, OPMEXEC_NOTIFY_INTERVAL (see
-# lib/defaults.sh)
+# etc/defaults/opmexec.conf)
 
 _OPMEXEC_INTERACTIVE=true
 
@@ -155,7 +155,6 @@ opmexec::complete() {
         [[ "$kind" == - ]] || kinds[$name]=$kind
       done
     done <<< "${_OPMEXEC_DIRECTIVE_OPTION_LIST[$context]:-}"
-    [[ " $options " == *" --help "* ]] || options+=" --help"
   fi
 
   if [[ -n "${kinds[$prev]:-}" ]]; then

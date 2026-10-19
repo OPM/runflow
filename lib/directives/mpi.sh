@@ -15,7 +15,6 @@ opmexec::directive_arguments command
 # scheduler is in OPMEXEC_JOB_SCHEDULER), OPMEXEC_MPI_LAUNCHER_LOCAL otherwise.
 #   @mpi [-n NP] [-o LAUNCHER_OPTIONS] command|directive [args...]
 @mpi() {
-  opmexec::help_requested mpi "$@" && return 0
   local np launcher_options
   
   while [[ $# -gt 0 ]]; do
@@ -24,7 +23,7 @@ opmexec::directive_arguments command
       -o|--options) opmexec::has_value @mpi "$@" || return 1; launcher_options="${launcher_options:+$launcher_options }$2"; shift 2 ;;
       --) shift; break ;;
       -*)
-        opmexec::error "@mpi: unknown option: $1 (use -- before a command that starts with -)"
+        opmexec::unknown_option mpi "$1" "use -- before a command that starts with -"
         return 1
         ;;
       *) break ;;

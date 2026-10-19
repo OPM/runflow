@@ -1,0 +1,10 @@
+# The site's configuration: edited by each installation, never by opmexec
+/etc/opmexec.conf
+
+# The examples' output and downloaded decks: ./runs/ and ./decks/ where they
+# are started (the repository or examples/)
+/runs/
+/decks/
+/examples/runs/
+/examples/decks/
+__pycache__/

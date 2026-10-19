@@ -18,3 +18,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/opmexec.sh" || return 1
 if [[ $- == *i* && $# -gt 0 ]]; then
   opmexec::setup "$@" || return 1
 fi
+
+# At a prompt (also opmexec --shell): opmexec and its man page, if not there
+# yet. A MANPATH ending in ":" keeps the system's pages (man-db, macOS man).
+# Scripts keep their PATH: the library has no side effects there.
+if [[ $- == *i* ]]; then
+  [[ ":$PATH:" == *":$OPMEXEC_HOME:"* ]] || PATH="$OPMEXEC_HOME:$PATH"
+  [[ ":${MANPATH:-}:" == *":$OPMEXEC_HOME/man:"* ]] ||
+    export MANPATH="$OPMEXEC_HOME/man:${MANPATH:-}"
+fi

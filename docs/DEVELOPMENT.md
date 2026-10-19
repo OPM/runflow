@@ -18,8 +18,8 @@ lib/interactive.sh           interactive shells: prompt marker, notifications, c
 lib/shell_rc.sh              rc file of opmexec --shell
 lib/queue/<scheduler>.sh     scheduler backends (localq; lsf is a stub)
 lib/queue/localq_runner.sh   per-job runner of localq
-lib/defaults.sh              built-in default of every setting
-etc/opmexec.conf.example     configuration template (keep in sync with lib/defaults.sh)
+etc/defaults/opmexec.conf    every setting: its default and explanation (read first)
+etc/opmexec.conf             the site's configuration (ignored by Git; not shipped)
 man/man1/opmexec.1           user reference (roff); check with: groff -man -ww -z
 examples/                    example workflows (README.md) and their post-processing (python/)
 tests/                       test suite, localq stress test
@@ -124,8 +124,10 @@ directory first in `PATH`.
   `opmexec::debug`.
 - **Option strings** are split with `opmexec::split_options`, never with
   `eval` or word splitting.
-- **Configuration:** a new setting gets its default in `lib/defaults.sh` and
-  a commented line in `etc/opmexec.conf.example` (a test checks this).
+- **Configuration:** a new setting gets its default, after a comment that
+  explains it, in `etc/defaults/opmexec.conf` (a test checks the comment).
+  A list setting where a name or pattern selects an item uses the last
+  matching item, so that `+=` in a later file redefines it.
   `lib/common.sh` loads defaults, then the configuration files, then restores
   what was set before loading, so the environment, and the settings jobs get
   from their workflow, win.

@@ -8,7 +8,8 @@ its Python. The man page has the user's view; this is what happens.
 The first that applies (`opmexec::flow::find`):
 
 1. **A path** (contains `/`): that executable.
-2. **A name in `OPMEXEC_FLOW_VERSIONS`** (`'NAME=PATH'` items; `PATH` is the
+2. **A name in `OPMEXEC_FLOW_VERSIONS`** (`'NAME=PATH'` items, the last of a
+   name winning, so `+=` in a later file redefines it; `PATH` is the
    executable or its directory, `~/` for the home directory).
 3. **An executable** `flow<VERSION>` or `<VERSION>` in the search directories,
    in order: `OPMEXEC_FLOW_BIN_PATHS`, where the entry `PATH` stands for the

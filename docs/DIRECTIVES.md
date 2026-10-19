@@ -29,7 +29,6 @@ opmexec::command_hello() {                     # optional: makes @mpi @hello pos
 }
 
 @hello() {
-  opmexec::help_requested hello "$@" && return 0 # @hello --help
   opmexec::command_hello "$@" || return 1
   if opmexec::dry_run; then
     opmexec::dry "run: $(opmexec::quoted "${_OPMEXEC_ARGV[@]}")"
@@ -43,7 +42,7 @@ Try it:
 
 ```bash
 opmexec --directives ./hello.sh -c @hello you
-opmexec --directives ./hello.sh -c @hello --help
+opmexec --directives ./hello.sh -c @help @hello
 opmexec --directives ./hello.sh --hello-greeting Hi --hello-options "-e" -c @hello 'you\n'
 opmexec --directives ./hello.sh --dry-run -c @mpi -n 4 @hello you
 opmexec --directives ./hello.sh -s localq -c @wait @submit @hello job
@@ -77,8 +76,8 @@ Read them with `opmexec::directive_options NAME`, which leaves the words in
 `--NAME-options`. For example, `my-tool` uses `OPMEXEC_MY_TOOL_OPTIONS`.
 
 **`opmexec::directive_option "NAMES [VALUE]" KIND DESCRIPTION`**
-Describes an option of the directive registered last, for `@help @NAME`,
-`@NAME --help` and Tab completion; the directive still parses its arguments
+Describes an option of the directive registered last, for `@help @NAME`
+and Tab completion; the directive still parses its arguments
 itself. NAMES are comma-separated spellings (`"-v, --flow-version VERSION"`); KIND
 is how its value is completed: `version` (a Flow version), `deck`, `file`,
 `job` (this run's job IDs), `scheduler`, `text` (not completed), or `-` for an
@@ -89,13 +88,9 @@ appear in their man page section.
 What follows the options, for Tab completion: `deck`, `file`, `job`,
 `command` (a program or a directive), `directive`, or `none`. Default: `file`.
 
-**`opmexec::help_requested NAME "$@" && return 0`**
-The first line of `@NAME`: shows its help when the first argument is
-`--help`. Later, `--help` stays an argument of the directive. A directive
-that wraps a program and passes all its arguments on, as `@flow` does,
-leaves it out and declares `--help` among its options
-(`opmexec::directive_option "--help, --version" - "Flow's own"`); its help is
-then `@help @NAME`.
+**`opmexec::unknown_option NAME OPTION [HINT]`**
+Reports an option `@NAME` does not take and returns 1. The message points to
+`@help @NAME`.
 
 **`opmexec::directive_setting OPTION VARIABLE DESCRIPTION [KIND]`**
 Adds a setting `--OPTION VALUE` to the directive registered last; KIND as for
