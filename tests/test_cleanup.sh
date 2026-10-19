@@ -44,7 +44,9 @@ test_second_signal_does_not_stop_the_cleanup() {
   # send them: the second arrives while the exit handler removes the session
   # file, and must stop neither the handler nor the rm it runs. The workflow
   # makes rm slow: a sleep first, which a signal it did not ignore would end,
-  # and rm with it.
+  # and rm with it. (A second signal while the first is being handled, before
+  # the exit handler starts, cannot be timed from here: workflow_signal
+  # ignores signals from its first command for that.)
   require_cmd perl
   cat > workflow.sh << 'WORKFLOW'
 rm() { sleep 1 && command rm "$@"; }

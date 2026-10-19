@@ -587,8 +587,12 @@ opmexec::workflow_mode() {
 }
 
 # A trapped signal in workflow mode: exit with STATUS (128 + its number), which
-# runs the exit handler. Usage: opmexec::workflow_signal NAME STATUS
+# runs the exit handler. Further signals are ignored from here on, as in the
+# exit handler: one arriving before it starts would run this again, and the
+# second exit would end bash without running the exit handler at all.
+# Usage: opmexec::workflow_signal NAME STATUS
 opmexec::workflow_signal() {
+  trap '' HUP INT PIPE TERM
   opmexec::debug "SIG$1 received: exiting with status $2"
   exit "$2"
 }
