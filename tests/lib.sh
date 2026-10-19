@@ -40,6 +40,9 @@ EOF
   export OPMEXEC_CONFIG="$SANDBOX/opmexec.conf"
   export OPMEXEC_LOCALQ_SLOTS=4 OPMEXEC_LOCALQ_POLL=0.2 OPMEXEC_POLL=0.2
   export OPMEXEC_LOCALQ_DIR="$SANDBOX/localq"
+  # MPI tests start 2 ranks: allow that on machines with fewer cores than
+  # Open MPI counts (Open MPI 4, and 5, which counts physical cores)
+  export OMPI_MCA_rmaps_base_oversubscribe=1 PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
   unset FAKE_SLEEP FAKE_RC
 
   cd "$SANDBOX/work" || exit 1

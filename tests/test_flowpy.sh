@@ -25,12 +25,15 @@ EOF
   export PATH="$SANDBOX/fakebin:$PATH"
 }
 
-# A fake Flow at PATH, linked against libpython VERSION if given
+# A fake Flow at PATH, linked against libpython VERSION if given, found in
+# PREFIX/lib (default: a sandbox directory without an interpreter, never the
+# system's: opmexec prefers PREFIX/bin/pythonVERSION, which e.g. Rocky Linux
+# 10 has in /usr)
 fake_flow() {
-  local path="$1" libpython="${2:-}"
+  local path="$1" libpython="${2:-}" prefix="${3:-$SANDBOX/no-python}"
   mkdir -p "$(dirname "$path")"
   cp "$SANDBOX/bin/flowtest" "$path"
-  [[ -z "$libpython" ]] || echo "# LDD: libpython$libpython.so.1.0 => /usr/lib/libpython$libpython.so.1.0 (0x1)" >> "$path"
+  [[ -z "$libpython" ]] || echo "# LDD: libpython$libpython.so.1.0 => $prefix/lib/libpython$libpython.so.1.0 (0x1)" >> "$path"
 }
 
 # Fake opm bindings for Python VERSION in DIR (DIR/opm/opmcommon_python...)
@@ -208,6 +211,19 @@ test_flow_python_falls_back_to_libpython() {
   assert_rc 0
   assert_contains "$OUT" "python 3.11 (from libpython), embedded, opm bindings: not found"
   assert_contains "$OUT" "run: $SANDBOX/fakebin/python3.11 script.py"
+}
+
+test_interpreter_installed_with_libpython_wins_over_path() {
+  # The Python installed with the libpython Flow embeds, not the first
+  # python3.11 in PATH
+  use_detection
+  mkdir -p "$SANDBOX/py/bin"
+  cp "$SANDBOX/fakebin/python3.11" "$SANDBOX/py/bin/python3.11"
+  fake_flow "$SANDBOX/bin/flowlinked" 3.11 "$SANDBOX/py"
+  printf '%s\n' "OPMEXEC_FLOW_PYTHONPATH=''" >> "$OPMEXEC_CONFIG"
+  run "$OPMEXEC" --dry-run -c @flowpy -v flowlinked script.py
+  assert_rc 0
+  assert_contains "$OUT" "run: $SANDBOX/py/bin/python3.11 script.py"
 }
 
 test_flow_lists_python_of_versions() {

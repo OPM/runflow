@@ -39,13 +39,26 @@ test_examples_dry_run() {
   use_decks
   local example
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/bin/flowrc47"
+  # 5_scaling.sh with its rank counts given: by default it caps them at this
+  # machine's cores (next test)
   for example in "1_run_case.sh:0" "2_compare_versions.sh flowtest flowrc47:0" "3_sensitivity.sh:7" \
-                 "4_prediction_scenarios.sh:4" "5_scaling.sh:4" "6_history_match.sh:1"; do
+                 "4_prediction_scenarios.sh:4" "5_scaling.sh $SANDBOX/decks/SPE9_CP_PACKED.DATA 1 2 4 8:4" \
+                 "6_history_match.sh:1"; do
     # shellcheck disable=SC2086  # the example's arguments
     run "$OPMEXEC" --dry-run "$ROOT/examples/"${example%:*}
     assert_rc 0
     assert_contains "$OUT" "done: ${example##*:} job(s) would be submitted"
   done
+}
+
+test_scaling_caps_default_ranks_at_the_cores() {
+  use_decks
+  local np expected=0 cores
+  cores=$(getconf _NPROCESSORS_ONLN)
+  for np in 1 2 4 8; do (( np <= cores )) && expected=$((expected + 1)); done
+  run "$OPMEXEC" --dry-run "$ROOT/examples/5_scaling.sh"
+  assert_rc 0
+  assert_contains "$OUT" "done: $expected job(s) would be submitted"
 }
 
 test_sensitivity_multiplies_at_the_end_of_the_grid() {

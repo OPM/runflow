@@ -16,10 +16,18 @@ test_session_removed_on_signals() {
 @submit sleep 5 > /dev/null
 @wait
 EOF
+  local sig rc
   for sig in INT TERM HUP; do
-    timeout -s "$sig" 1.5 "$OPMEXEC" workflow.sh > /dev/null 2>&1
-    # The handler may still be finishing when timeout returns
-    wait_for 10 no_session_files || fail "session file left after $sig"
+    OPMEXEC_DEBUG=true timeout -s "$sig" 1.5 "$OPMEXEC" workflow.sh > "$sig.log" 2>&1
+    rc=$?
+    # The handler may still be finishing when timeout returns. On failure,
+    # what is needed to tell why: timeout's exit status (124: opmexec ended
+    # after the signal), opmexec's processes left, and its debug output
+    wait_for 10 no_session_files ||
+      fail "session file left after $sig (timeout exit status $rc; processes left:
+$(ps -eo pid,pgid,stat,args | grep -F "$SANDBOX" | grep -v grep)
+--- opmexec's output:
+$(cat "$sig.log")"
   done
 }
 

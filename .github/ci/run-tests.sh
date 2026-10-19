@@ -22,12 +22,17 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 script="$root/.github/ci/run-tests.sh"
 
-# Where Open MPI's mpirun is, on systems that keep it out of PATH
+# Where Open MPI's mpirun is, on systems that keep it out of PATH (RHEL,
+# SUSE); nothing, and success, where it is in PATH already (Debian, Ubuntu)
 mpi_path() {
   local dir
   for dir in /usr/lib64/openmpi/bin /usr/lib64/mpi/gcc/openmpi4/bin; do
-    [[ -x "$dir/mpirun" ]] && { echo "$dir"; return; }
+    if [[ -x "$dir/mpirun" ]]; then
+      echo "$dir"
+      return 0
+    fi
   done
+  return 0
 }
 
 install_linux() {
@@ -60,7 +65,9 @@ install_linux() {
 }
 
 # Linux, as root: the packages, then a user owning the checkout (the host's
-# runner user, mounted into the container), who runs the tests
+# runner user, mounted into the container), who runs the tests. setpriv only
+# changes the user and execs: no login session and no signal handling of its
+# own, unlike su and runuser, so the tests start as they would for a user.
 setup_linux() {
   local uid user=ci path
   install_linux
@@ -70,7 +77,8 @@ setup_linux() {
   user=$(getent passwd "$uid" | cut -d: -f1)
   path=$(mpi_path)
   path="${path:+$path:}$PATH"
-  exec runuser -u "$user" -- env HOME="$(getent passwd "$uid" | cut -d: -f6)" PATH="$path" \
+  exec setpriv --reuid="$uid" --regid="$(id -g "$user")" --init-groups \
+    env HOME="$(getent passwd "$uid" | cut -d: -f6)" USER="$user" LOGNAME="$user" PATH="$path" \
     CI_FLOW="${CI_FLOW:-}" CI_STRESS="${CI_STRESS:-}" bash "$script" --run
 }
 
@@ -98,6 +106,8 @@ download_decks() {
 run() {
   cd "$root"
   echo "bash $BASH_VERSION on $(uname -sm)$( [[ -r /etc/os-release ]] && . /etc/os-release && echo ", $PRETTY_NAME")"
+  # Signals the tests start with ignored (they cannot be trapped)
+  echo "signals ignored at start: $(bash -c 'trap -p' | sed -n "s/^trap -- '' SIG//p" | tr '\n' ' ')"
   if [[ -n "${CI_FLOW:-}" ]]; then
     TEST_FLOW=$(command -v flow) || { echo "run-tests.sh: no flow after installing OPM" >&2; exit 1; }
     export TEST_FLOW TEST_DECKS="$HOME/decks"

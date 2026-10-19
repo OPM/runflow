@@ -41,18 +41,25 @@ jobs:
         env:
           CI_STRESS: ${{ matrix.stress }}
         run: .github/ci/run-tests.sh
+      # Symbolic links into the system (tests make some, e.g. to every
+      # command in PATH) would be followed, and some are unreadable
+      - name: Prepare the sandboxes of failed tests
+        if: failure()
+        run: find ci-sandboxes -type l -delete 2> /dev/null || true
       - name: Sandboxes of failed tests
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: sandboxes-${{ matrix.os }}
           path: ci-sandboxes/
+          include-hidden-files: true   # e.g. ~/.local/state/opmexec, its session files and job logs
           if-no-files-found: ignore
 
   # Containers started with docker run, not the job's container option:
   # one way for every image, and no requirement on the image's C library.
   # --init reaps orphaned processes, as a system's init does: localq tells a
-  # dead runner by its /proc entry, which a zombie would keep.
+  # dead runner by its /proc entry, which a zombie would keep. Open MPI's
+  # shared-memory copies across processes are not allowed in containers.
   cluster:
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
@@ -61,15 +68,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Rocky Linux 8 (RHEL 8)", image: "rockylinux/rockylinux:8" }
-          - { name: "Rocky Linux 9 (RHEL 9)", image: "rockylinux/rockylinux:9" }
-          - { name: "Rocky Linux 10 (RHEL 10)", image: "rockylinux/rockylinux:10" }
-          - { name: "Debian 12", image: "debian:12" }
-          - { name: "Debian 13", image: "debian:13" }
-          - { name: "Ubuntu 22.04", image: "ubuntu:22.04" }
-          - { name: "openSUSE Leap 15.6 (SLES 15)", image: "opensuse/leap:15.6" }
-          - { name: "Flow from Debian 13's packages", image: "debian:13", flow: debian }
-          - { name: "Flow from the OPM PPA (Ubuntu 24.04)", image: "ubuntu:24.04", flow: ppa }
+          - { id: rocky8, name: "Rocky Linux 8 (RHEL 8)", image: "rockylinux/rockylinux:8" }
+          - { id: rocky9, name: "Rocky Linux 9 (RHEL 9)", image: "rockylinux/rockylinux:9" }
+          - { id: rocky10, name: "Rocky Linux 10 (RHEL 10)", image: "rockylinux/rockylinux:10" }
+          - { id: debian12, name: "Debian 12", image: "debian:12" }
+          - { id: debian13, name: "Debian 13", image: "debian:13" }
+          - { id: ubuntu2204, name: "Ubuntu 22.04", image: "ubuntu:22.04" }
+          - { id: leap156, name: "openSUSE Leap 15.6 (SLES 15)", image: "opensuse/leap:15.6" }
+          - { id: flow-debian13, name: "Flow from Debian 13's packages", image: "debian:13", flow: debian }
+          - { id: flow-ppa, name: "Flow from the OPM PPA (Ubuntu 24.04)", image: "ubuntu:24.04", flow: ppa }
     steps:
       - uses: actions/checkout@v4
       - name: Tests
@@ -77,12 +84,15 @@ jobs:
           docker run --rm --init -v "$PWD:/src" -w /src \
             -e CI_FLOW="${{ matrix.flow }}" \
             -e OMPI_MCA_btl_vader_single_copy_mechanism=none \
-            -e OMPI_MCA_rmaps_base_oversubscribe=1 \
             "${{ matrix.image }}" bash .github/ci/run-tests.sh
+      - name: Prepare the sandboxes of failed tests
+        if: failure()
+        run: find ci-sandboxes -type l -delete 2> /dev/null || true
       - name: Sandboxes of failed tests
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: sandboxes-${{ strategy.job-index }}
+          name: sandboxes-${{ matrix.id }}
           path: ci-sandboxes/
+          include-hidden-files: true
           if-no-files-found: ignore
