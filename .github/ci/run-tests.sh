@@ -104,7 +104,9 @@ run() {
     download_decks "$TEST_DECKS"
     echo "Flow: $TEST_FLOW ($("$TEST_FLOW" --version 2>&1 | head -n 1))"
   fi
-  export KEEP_FAILED=1 TMPDIR="$root/ci-sandboxes"
+  # With a trailing slash, as macOS sets TMPDIR: every system checks that the
+  # tests do not depend on its spelling
+  export KEEP_FAILED=1 TMPDIR="$root/ci-sandboxes/"
   mkdir -p "$TMPDIR"
 
   local rc=0

@@ -12,6 +12,13 @@
 set -o pipefail
 
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Sandboxes go in TMPDIR, without trailing slashes: macOS sets TMPDIR to
+# /var/folders/.../T/, and tests compare paths as text with what opmexec
+# prints, which never has "//" (directories are made absolute with pwd)
+TMPDIR=${TMPDIR:-/tmp}
+while [[ "$TMPDIR" == */ && "$TMPDIR" != / ]]; do TMPDIR=${TMPDIR%/}; done
+export TMPDIR
 source "$TESTS_DIR/lib.sh"
 
 pattern="${1:-}"
@@ -36,7 +43,7 @@ interrupted() {
     kill -TERM "$test_pid" 2> /dev/null
     wait "$test_pid" 2> /dev/null
     teardown_sandbox "$sandbox"
-    [[ "$sandbox" != "${TMPDIR:-/tmp}"/opmexec-test.* ]] || rm -rf -- "$sandbox"
+    [[ "$sandbox" != "$TMPDIR"/opmexec-test.* ]] || rm -rf -- "$sandbox"
   fi
   echo
   echo "interrupted: $passed passed, $failed failed, $skipped skipped so far"
@@ -59,7 +66,7 @@ for file in "$TESTS_DIR"/test_*.sh; do
       header_done=true
     fi
 
-    sandbox=$(mktemp -d "${TMPDIR:-/tmp}/opmexec-test.XXXXXX")
+    sandbox=$(mktemp -d "$TMPDIR/opmexec-test.XXXXXX")
     start=$(date +%s.%N)
 
     # In the background, so that the trap above runs at once on Ctrl-C (bash
@@ -99,7 +106,7 @@ for file in "$TESTS_DIR"/test_*.sh; do
 
     if [[ "$rc" != 0 && "$rc" != 77 && -n "${KEEP_FAILED:-}" ]]; then
       echo "        sandbox kept: $sandbox"
-    elif [[ "$sandbox" == "${TMPDIR:-/tmp}"/opmexec-test.* ]]; then
+    elif [[ "$sandbox" == "$TMPDIR"/opmexec-test.* ]]; then
       rm -rf -- "$sandbox"
     fi
   done
