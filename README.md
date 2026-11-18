@@ -2,6 +2,13 @@
 
 [![tests](https://github.com/OPM/runflow/actions/workflows/tests.yml/badge.svg)](https://github.com/OPM/runflow/actions/workflows/tests.yml)
 
+> **Work in progress.** runflow is still being developed. Until version 1.0
+> there is no promise to keep its functionality or its syntax (options,
+> directives, settings) as they are: a new version may change or remove
+> them. [CHANGELOG.md](CHANGELOG.md) lists every change and what to do about
+> it; to stay on a known version, check out its release tag, e.g.
+> `git checkout v0.1.0`.
+
 The execution environment for [OPM](https://opm-project.org) (Open Porous
 Media). runflow runs Flow, Flow's Python and any other program the same way on
 a workstation and on a cluster. It finds the installed Flow versions and the
