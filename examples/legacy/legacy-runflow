@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
+#
+# A typical site's runflow command (one deck, one Flow, a job or a run
+# here), rebuilt on runflow's library: the same options, in a few lines.
+# What such scripts hard-code (where the Flow versions are, the default one,
+# the Python of each, the mpirun and scheduler options) is the site's
+# configuration instead: see site.conf next to it, and README.md.
+
+usage() {
+  cat << 'EOF'
+usage: legacy-runflow [-q QUEUE] [-i] [-l] [-v VERSION] [-n NP] [-o "OPTIONS"] DECK
+  -q, --queue QUEUE      the job's queue (default: the site's)
+  -i, --interactive      run here and now, instead of as a job
+  -l, --list             list the Flow versions
+  -v, --version VERSION  the Flow version (default: the site's)
+  -n, -np, --np NP       MPI processes (default: 1)
+  -o, -op, --op OPTIONS  Flow's options, e.g. -o "--enable-esmry=true"
+Flow runs in the deck's directory, and writes its output to DECK.LOG.
+EOF
+}
+
+# runflow's library: found through PATH, unless already loaded (when run as
+# runflow [--dry-run] legacy-runflow ...)
+declare -F runflow::setup > /dev/null || source runflow.bash || exit 1
+
+# The options, as the legacy script took them (also -np and -op)
+interactive=false setup=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -i|--interactive) interactive=true; shift; continue ;;
+    -l|--list) @flow -l; exit ;;
+    -h|--help) usage; exit 0 ;;
+    -q|--queue|-v|--version|-n|-np|--np|-o|-op|--op)
+      [[ $# -ge 2 ]] || { echo "legacy-runflow: $1 needs a value" >&2; exit 2; } ;;
+    -*) echo "legacy-runflow: unknown option: $1" >&2; usage >&2; exit 2 ;;
+    *) break ;;
+  esac
+  # ... which become runflow's: the job's queue, the Flow version, the
+  # number of MPI processes, the options of every @flow
+  case "$1" in
+    -q|--queue) setup+=(-q "$2") ;;
+    -v|--version) setup+=(--flow-version "$2") ;;
+    -n|-np|--np) setup+=(-n "$2") ;;
+    -o|-op|--op) setup+=(--flow-options "$2") ;;
+  esac
+  shift 2
+done
+if [[ $# -ne 1 ]]; then
+  echo "legacy-runflow: one deck is required" >&2
+  exit 4
+fi
+runflow::setup "${setup[@]}" || exit 1
+
+# The deck, in its own directory, where Flow writes its output
+cd "$(dirname "$1")" || exit 1
+root=$(basename "$1")
+root=${root%%.*}
+
+# One process: Flow alone; more: with MPI. Here and now (-i), or as a job
+# with the deck's name, writing to DECK.LOG and printing the job's ID
+run=(@flow "$root.DATA")
+[[ "${RUNFLOW_NP:-1}" -eq 1 ]] || run=(@mpi "${run[@]}")
+if $interactive; then
+  "${run[@]}"
+else
+  @submit -o "$PWD/$root.LOG" --localq-options "--job-name=$root" --lsf-options "-J $root" "${run[@]}"
+fi

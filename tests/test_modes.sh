@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 OPM-OP AS
-# The three ways to use flowrun: script, inline command, sourcing the library
+# The three ways to use runflow: script, inline command, sourcing the library
 
 # A workflow that sources the library itself (mode 3)
 write_sourcing_workflow() {
   cat > sourcing.sh << EOF
 #!/usr/bin/env bash
-source "$ROOT/lib/flowrun.sh" || exit 1
+source "$ROOT/lib/runflow.sh" || exit 1
 EOF
   cat >> sourcing.sh
   chmod +x sourcing.sh
@@ -16,14 +16,14 @@ EOF
 test_same_workflow_in_all_three_modes() {
   local body='j=$(@wait @submit -o "$PWD/out-$1.log" @flow A.DATA) && echo "mode $1 ok $j"'
 
-  # 1. script run by flowrun
+  # 1. script run by runflow
   printf '%s\n' "$body" > workflow.sh
-  run "$FLOWRUN" workflow.sh script
+  run "$RUNFLOW" workflow.sh script
   assert_rc 0
   assert_contains "$OUT" "mode script ok $TEST_SCHEDULER:"
 
   # 2. inline command
-  run "$FLOWRUN" -c @wait @submit -o "$PWD/out-inline.log" @flow A.DATA
+  run "$RUNFLOW" -c @wait @submit -o "$PWD/out-inline.log" @flow A.DATA
   assert_rc 0
 
   # 3. script that sources the library, run directly
@@ -37,19 +37,19 @@ test_same_workflow_in_all_three_modes() {
   done
 }
 
-test_sourcing_script_also_runs_under_flowrun() {
+test_sourcing_script_also_runs_under_runflow() {
   # Loading twice is harmless: the library loads once
   write_sourcing_workflow << 'EOF'
 echo "directives: $(compgen -A function -- @ | tr '\n' ' ')"
 EOF
-  run "$FLOWRUN" ./sourcing.sh
+  run "$RUNFLOW" ./sourcing.sh
   assert_rc 0
   assert_contains "$OUT" "@flow @flowpy @help @mpi @submit @wait"
 }
 
 test_setup_takes_the_command_options() {
   write_sourcing_workflow << 'EOF'
-flowrun::setup -s slurm -n 8 --slurm-options "--time=1:00" --dry-run || exit 1
+runflow::setup -s slurm -n 8 --slurm-options "--time=1:00" --dry-run || exit 1
 @submit @mpi @flow A.DATA > /dev/null
 EOF
   run ./sourcing.sh
@@ -61,11 +61,11 @@ EOF
 
 test_setup_rejects_unknown_options() {
   write_sourcing_workflow << 'EOF'
-flowrun::setup --bogus
+runflow::setup --bogus
 echo "rc=$?"
 EOF
   run ./sourcing.sh
-  assert_contains "$OUT" "flowrun::setup: unknown option: --bogus"
+  assert_contains "$OUT" "runflow::setup: unknown option: --bogus"
   assert_contains "$OUT" "rc=1"
 }
 
@@ -73,7 +73,7 @@ test_sourcing_script_uses_environment_defaults() {
   write_sourcing_workflow << 'EOF'
 @submit @flow A.DATA > /dev/null
 EOF
-  FLOWRUN_DRY_RUN=true FLOWRUN_SCHEDULER=pbs FLOWRUN_NP=3 run ./sourcing.sh
+  RUNFLOW_DRY_RUN=true RUNFLOW_SCHEDULER=pbs RUNFLOW_NP=3 run ./sourcing.sh
   assert_rc 0
   assert_contains "$OUT" "submit pbs:dry1: queue=default np=3"
 }
@@ -88,11 +88,11 @@ EOF
   assert_eq "$(session_files)" 0
 }
 
-test_source_flowrun_bash_through_path() {
+test_source_runflow_bash_through_path() {
   # The documented way: no installation path in the script
   cat > script.sh << 'EOF'
 #!/usr/bin/env bash
-source flowrun.bash || exit 1
+source runflow.bash || exit 1
 @flow A.DATA
 EOF
   PATH="$ROOT:$PATH" run bash script.sh
@@ -100,19 +100,19 @@ EOF
   assert_contains "$OUT" "ARGV [$PWD/A.DATA]"
 }
 
-test_flowrun_bash_must_be_sourced() {
-  run bash "$ROOT/flowrun.bash"
+test_runflow_bash_must_be_sourced() {
+  run bash "$ROOT/runflow.bash"
   assert_rc 1
-  assert_contains "$OUT" "flowrun.bash is meant to be sourced"
+  assert_contains "$OUT" "runflow.bash is meant to be sourced"
 }
 
 test_library_option_prints_sourceable_path() {
-  run "$FLOWRUN" --library
+  run "$RUNFLOW" --library
   assert_rc 0
-  assert_eq "$OUT" "$ROOT/lib/flowrun.sh"
+  assert_eq "$OUT" "$ROOT/lib/runflow.sh"
   
   cat > script.sh << EOF
-source "\$("$FLOWRUN" --library)" || exit 1
+source "\$("$RUNFLOW" --library)" || exit 1
 @flow A.DATA
 EOF
   run bash script.sh

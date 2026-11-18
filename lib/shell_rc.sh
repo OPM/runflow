@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 OPM-OP AS
-# The rc file of flowrun --shell: an interactive bash with the user's own
-# ~/.bashrc, then the directives. The options given to flowrun --shell arrive
-# as exported settings (see flowrun::setup_option), which the configuration
+# The rc file of runflow --shell: an interactive bash with the user's own
+# ~/.bashrc, then the directives. The options given to runflow --shell arrive
+# as exported settings (see runflow::setup_option), which the configuration
 # keeps over the files. exit leaves the shell, and with it the environment.
 
 [[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
 
-if source "$(dirname "${BASH_SOURCE[0]}")/../flowrun.bash"; then
+if source "$(dirname "${BASH_SOURCE[0]}")/../runflow.bash"; then
   # Which Flow @flow runs without -v
-  if flowrun::flow::find "$FLOWRUN_FLOW_VERSION" 2> /dev/null; then
-    _FLOWRUN_BANNER="$_FLOWRUN_FLOW_FOUND (OPM $_FLOWRUN_FLOW_FOUND_VERSION)"
+  if runflow::flow::find "$RUNFLOW_FLOW_VERSION" 2> /dev/null; then
+    _RUNFLOW_BANNER="$_RUNFLOW_FLOW_FOUND (OPM $_RUNFLOW_FLOW_FOUND_VERSION)"
   else
-    _FLOWRUN_BANNER="not found (@flow -l lists the versions)"
+    _RUNFLOW_BANNER="not found (@flow -l lists the versions)"
   fi
-  echo "flowrun shell: scheduler $(flowrun::get_scheduler); Flow $FLOWRUN_FLOW_VERSION: $_FLOWRUN_BANNER" >&2
+  echo "runflow shell: scheduler $(runflow::get_scheduler); Flow $RUNFLOW_FLOW_VERSION: $_RUNFLOW_BANNER" >&2
   echo "@help lists the directives, Tab completes, exit leaves" >&2
-  unset _FLOWRUN_BANNER
+  unset _RUNFLOW_BANNER
 else
-  echo "flowrun shell: could not load the directives" >&2
+  echo "runflow shell: could not load the directives" >&2
 fi

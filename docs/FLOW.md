@@ -5,16 +5,16 @@ its Python. The man page has the user's view; this is what happens.
 
 ## The executable (`@flow -v VERSION`)
 
-The first that applies (`flowrun::flow::find`):
+The first that applies (`runflow::flow::find`):
 
 1. **A path** (contains `/`): that executable.
-2. **A name in `FLOWRUN_FLOW_VERSIONS`** (`'NAME=PATH'` items, the last of a
+2. **A name in `RUNFLOW_FLOW_VERSIONS`** (`'NAME=PATH'` items, the last of a
    name winning, so `+=` in a later file redefines it; `PATH` is the
    executable or its directory, `~/` for the home directory).
 3. **An executable** `flow<VERSION>` or `<VERSION>` in the search directories,
-   in order: `FLOWRUN_FLOW_BIN_PATHS`, where the entry `PATH` stands for the
+   in order: `RUNFLOW_FLOW_BIN_PATHS`, where the entry `PATH` stands for the
    directories of `$PATH` at the time of the lookup (in a job: after
-   `FLOWRUN_JOB_SETUP`). Relative entries are skipped, so a deck directory
+   `RUNFLOW_JOB_SETUP`). Relative entries are skipped, so a deck directory
    never provides Flow. The first OPM Flow found wins.
 4. **An OPM version** such as `2025.04`, if exactly one of the named versions
    and the executables named `flow` in the search directories reports it.
@@ -29,11 +29,11 @@ its OPM version: that one `--version` is all it costs.
 ## The build (`@flow -l`)
 
 `@flow -l` shows each build's OPM version, git hash, build type and build
-time (`flowrun::flow::build_info`); `@flow -l VERSION` adds the MPI library
-and the build ID (`flowrun::flow::build_details`):
+time (`runflow::flow::build_info`); `@flow -l VERSION` adds the MPI library
+and the build ID (`runflow::flow::build_details`):
 
 - **`flow --build-info`**, if Flow supports it (added to opm-simulators
-  alongside flowrun), prints `version=`, `hash=`, `build_time=`,
+  alongside runflow), prints `version=`, `hash=`, `build_time=`,
   `build_type=` and `mpi=` lines.
 - **Otherwise**, Flow is run on a one-line deck in a temporary directory: it
   writes the header of its log (`Flow Version = 2025.04 (hash)`, `Build time
@@ -50,15 +50,15 @@ CPU.
 ## The Python (`@flowpy`, and `PYTHONPATH` for `@flow`)
 
 For each version, the configuration wins over detection
-(`flowrun::flow::python_info`):
+(`runflow::flow::python_info`):
 
-- **The Python version:** `FLOWRUN_FLOW_PYTHON_MAP`; else the name of the
+- **The Python version:** `RUNFLOW_FLOW_PYTHON_MAP`; else the name of the
   bindings' compiled module, which Python itself uses to decide what it can
   import (`opmcommon_python.cpython-313-...so`: 3.13; `cpython-313t`,
   free-threaded: 3.13t; `cpython-313d`, debug: 3.13d); else the libpython Flow
   is linked against (`ldd`, or `otool -L` on macOS), which only Flow builds
   that embed Python have.
-- **The bindings** (`FLOWRUN_FLOW_PYTHONPATH`): a template, or with `auto`
+- **The bindings** (`RUNFLOW_FLOW_PYTHONPATH`): a template, or with `auto`
   found next to Flow: `PREFIX/lib/python3.X/site-packages` for
   `PREFIX/bin/flow`, or, in a CMake build tree, the `python` directories of
   the opm-common build named in `CMakeCache.txt` and of the build itself

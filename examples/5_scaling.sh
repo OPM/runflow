@@ -7,8 +7,8 @@
 # New here: MPI jobs. @submit -n NP reserves NP tasks for the job (in the
 # local queue: NP of its slots, one per core), and @mpi inside the job starts
 # Flow on them with the scheduler's MPI launcher (mpirun, or srun on SLURM).
-#   flowrun examples/5_scaling.sh                        # SPE9 on 1, 2, 4, 8 ranks
-#   flowrun examples/5_scaling.sh MODEL.DATA 1 2 4 8 16
+#   runflow examples/5_scaling.sh                        # SPE9 on 1, 2, 4, 8 ranks
+#   runflow examples/5_scaling.sh MODEL.DATA 1 2 4 8 16
 # SPE9 is small (9,000 cells) and stops scaling after a few ranks.
 
 deck=${1:-${OPM_DECKS:?set OPM_DECKS to the directory with the decks (see examples/README.md)}/SPE9_CP_PACKED.DATA}
@@ -29,7 +29,7 @@ for np in "${ranks[@]}"; do
   @wait @submit -n "$np" -o "$dir/np_$np/job.log" @mpi @flow "$dir/np_$np/$(basename "$deck")" > /dev/null || exit 1
 done
 
-[[ $FLOWRUN_DRY_RUN != true ]] || exit 0   # (a dry run has no results)
+[[ $RUNFLOW_DRY_RUN != true ]] || exit 0   # (a dry run has no results)
 
 # "Simulation time: 3.93 s" in each run's .PRT log; speedup against the first
 for np in "${ranks[@]}"; do

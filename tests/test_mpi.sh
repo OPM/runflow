@@ -5,20 +5,20 @@
 
 # Append settings to the sandbox configuration
 set_config() {
-  printf '%s\n' "$@" >> "$FLOWRUN_CONFIG"
+  printf '%s\n' "$@" >> "$RUNFLOW_CONFIG"
 }
 
 test_mpi_runs_flow_locally() {
   require_cmd mpirun
-  run "$FLOWRUN" -c @mpi -n 2 @flow A.DATA
+  run "$RUNFLOW" -c @mpi -n 2 @flow A.DATA
   assert_rc 0
   assert_eq "$(grep -c '^FLOW' <<< "$OUT")" 2
   assert_contains "$OUT" "np=2"
 }
 
-test_mpi_np_defaults_to_flowrun_np() {
+test_mpi_np_defaults_to_runflow_np() {
   require_cmd mpirun
-  run "$FLOWRUN" -n 2 -c @mpi @flow A.DATA
+  run "$RUNFLOW" -n 2 -c @mpi @flow A.DATA
   assert_rc 0
   assert_eq "$(grep -c '^FLOW' <<< "$OUT")" 2
 }
@@ -28,22 +28,22 @@ test_mpi_runs_plain_commands() {
   # A script, not sh -c '...': Open MPI 5's mpirun splits arguments with
   # quotes and spaces
   printf '%s\n' 'echo "rank ${OMPI_COMM_WORLD_RANK:-${PMI_RANK:-?}}"' > rank.sh
-  run "$FLOWRUN" -c @mpi -n 2 sh rank.sh
+  run "$RUNFLOW" -c @mpi -n 2 sh rank.sh
   assert_rc 0
   assert_eq "$(grep -c '^rank' <<< "$OUT")" 2
 }
 
 test_mpi_inside_job_uses_job_np() {
   require_cmd mpirun
-  run "$FLOWRUN" -c @wait @submit -n 2 -o "$PWD/out.log" @mpi @flow A.DATA
+  run "$RUNFLOW" -c @wait @submit -n 2 -o "$PWD/out.log" @mpi @flow A.DATA
   assert_rc 0
   assert_eq "$(grep -c '^FLOW' out.log)" 2
 }
 
 test_mpi_launcher_options_order() {
-  # Configured launcher, then flowrun --mpi-options, then @mpi -o
-  set_config "FLOWRUN_MPI_LAUNCHER_LOCAL='mpirun -np {np} --site=\"a b\"'"
-  run "$FLOWRUN" --dry-run --mpi-options "--workflow=1" -c @mpi -n 3 -o "--call=2" @flow A.DATA
+  # Configured launcher, then runflow --mpi-options, then @mpi -o
+  set_config "RUNFLOW_MPI_LAUNCHER_LOCAL='mpirun -np {np} --site=\"a b\"'"
+  run "$RUNFLOW" --dry-run --mpi-options "--workflow=1" -c @mpi -n 3 -o "--call=2" @flow A.DATA
   assert_rc 0
   assert_contains "$OUT" "run: mpirun -np 3 --site=a\\ b --workflow=1 --call=2 env PYTHONPATH="
 }
@@ -55,39 +55,39 @@ test_mpi_launcher_per_scheduler() {
               "localq:mpirun -np 8"; do
     scheduler=${pair%%:*}
     expected=${pair#*:}
-    run "$FLOWRUN" --dry-run -s "$scheduler" -c @submit -n 8 @mpi @flow A.DATA
+    run "$RUNFLOW" --dry-run -s "$scheduler" -c @submit -n 8 @mpi @flow A.DATA
     assert_rc 0
     assert_contains "$OUT" "run: $expected env PYTHONPATH="
   done
 }
 
 test_mpi_local_launcher_outside_jobs() {
-  run "$FLOWRUN" --dry-run -s slurm -c @mpi -n 4 @flow A.DATA
+  run "$RUNFLOW" --dry-run -s slurm -c @mpi -n 4 @flow A.DATA
   assert_rc 0
   assert_contains "$OUT" "run: mpirun -np 4 env PYTHONPATH="
 }
 
 test_mpi_launcher_not_found() {
-  set_config "FLOWRUN_MPI_LAUNCHER_LOCAL='no-such-launcher -n {np}'"
-  run "$FLOWRUN" -c @mpi -n 2 @flow A.DATA
+  set_config "RUNFLOW_MPI_LAUNCHER_LOCAL='no-such-launcher -n {np}'"
+  run "$RUNFLOW" -c @mpi -n 2 @flow A.DATA
   assert_rc 1
-  assert_contains "$OUT" "MPI launcher not found: no-such-launcher (set FLOWRUN_MPI_LAUNCHER_LOCAL)"
+  assert_contains "$OUT" "MPI launcher not found: no-such-launcher (set RUNFLOW_MPI_LAUNCHER_LOCAL)"
 }
 
 test_mpi_rejects_directives_without_command() {
-  run "$FLOWRUN" -c @mpi @submit true
+  run "$RUNFLOW" -c @mpi @submit true
   assert_rc 1
   assert_contains "$OUT" "@submit cannot run under @mpi"
 }
 
 test_mpi_rejects_bad_np() {
-  run "$FLOWRUN" -c @mpi -n 0 @flow A.DATA
+  run "$RUNFLOW" -c @mpi -n 0 @flow A.DATA
   assert_rc 1
   assert_contains "$OUT" "must be a positive integer"
 }
 
 test_mpi_passes_flow_errors() {
-  run "$FLOWRUN" -c @mpi -n 2 @flow MISSING.DATA
+  run "$RUNFLOW" -c @mpi -n 2 @flow MISSING.DATA
   assert_rc 1
   assert_contains "$OUT" "Input deck not found: MISSING.DATA"
 }

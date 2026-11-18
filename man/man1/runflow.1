@@ -1,25 +1,25 @@
 .\" SPDX-License-Identifier: GPL-3.0-or-later
 .\" Copyright (C) 2026 OPM-OP AS
-.TH FLOWRUN 1 "2026-10-16" "flowrun" "User Commands"
+.TH RUNFLOW 1 "2026-10-16" "runflow" "User Commands"
 .nh
 .SH NAME
-flowrun \- the execution environment for OPM: run Flow and its tools, locally or through a scheduler
+runflow \- the execution environment for OPM: run Flow and its tools, locally or through a scheduler
 .SH SYNOPSIS
-.SY flowrun
+.SY runflow
 .RI [ OPTION ]...\& " SCRIPT " [ ARG ]...
-.SY flowrun
+.SY runflow
 .RI [ OPTION ]...\&
 .B \-c
 .IR COMMAND " [" ARG ]...
-.SY flowrun
+.SY runflow
 .RI [ OPTION ]...\&
 .B \-\-shell
-.SY flowrun
+.SY runflow
 .RI [ OPTION ]...\&
 .BR \-\-jobs [ =all ]
 .YS
 .SH DESCRIPTION
-.B flowrun
+.B runflow
 is the execution environment for OPM (Open Porous Media).
 It runs Flow, Flow's Python and other programs the same way on a workstation and on a cluster: it finds the installed Flow versions and the Python each one needs, and starts MPI runs with the launcher of the scheduler in use.
 .PP
@@ -71,7 +71,7 @@ LSF, SLURM and PBS are planned
 shows what a workflow would submit to them).
 .PP
 Options given to
-.B flowrun
+.B runflow
 are defaults for every directive in the script; options on a directive override or add to them.
 For example, with this
 .IR run.sh :
@@ -81,7 +81,7 @@ For example, with this
 @mpi @flow "$1" && @flowpy summary.py FOPR "$1"
 .EE
 .PP
-.B "flowrun \-n 8 \-\-flow\-version 2025.04 run.sh CASE.DATA"
+.B "runflow \-n 8 \-\-flow\-version 2025.04 run.sh CASE.DATA"
 runs
 .I CASE.DATA
 with Flow 2025.04 on 8 MPI ranks, then reads its oil production.
@@ -152,7 +152,7 @@ also finished ones), then exit.
 Print the path of the library and exit (first argument only).
 .TP
 .B \-\-version
-Print flowrun's version; in a Git checkout that is not exactly a release,
+Print runflow's version; in a Git checkout that is not exactly a release,
 also its commit, e.g.
 .BR "0.1.0 (git v0.1.0-3-g842f3b2-modified)" .
 What changed in each version: CHANGELOG.md.
@@ -201,13 +201,13 @@ passes even them on:
 .TP 4
 .BR \-v ", " \-\-flow\-version
 The Flow to run, the first that applies: a path; a name in
-.BR FLOWRUN_FLOW_VERSIONS ;
+.BR RUNFLOW_FLOW_VERSIONS ;
 an executable
 .BI flow VERSION
 or
 .I VERSION
 in
-.B FLOWRUN_FLOW_BIN_PATHS
+.B RUNFLOW_FLOW_BIN_PATHS
 (by default
 .BR PATH );
 an OPM version, e.g.
@@ -217,7 +217,7 @@ Only OPM Flow is used, never another program named flow.
 Default:
 .BR \-\-flow\-version ,
 else
-.BR FLOWRUN_FLOW_VERSION .
+.BR RUNFLOW_FLOW_VERSION .
 .TP
 .BR \-l ", " \-\-list
 List the Flow versions: OPM version, git hash
@@ -275,7 +275,7 @@ It first reports, on standard error, which Python runs, e.g.
 so job logs record it; standard output stays Python's.
 .PP
 The Python version comes from
-.BR FLOWRUN_FLOW_PYTHON_MAP ,
+.BR RUNFLOW_FLOW_PYTHON_MAP ,
 else from the bindings found next to Flow, else from the libpython Flow embeds; a different Python is never used.
 .SS @mpi
 .B @mpi
@@ -291,13 +291,13 @@ Runs a program, or
 with
 .I NP
 MPI ranks (default
-.BR "flowrun \-n" ;
+.BR "runflow \-n" ;
 in a job, the job's
 .BR \-n ).
 The launcher is
-.B FLOWRUN_MPI_LAUNCHER_LOCAL
+.B RUNFLOW_MPI_LAUNCHER_LOCAL
 on this machine and in localq jobs,
-.BI FLOWRUN_MPI_LAUNCHER_ SCHEDULER
+.BI RUNFLOW_MPI_LAUNCHER_ SCHEDULER
 in jobs of other schedulers; then come
 .B \-\-mpi\-options
 and
@@ -357,7 +357,7 @@ runs it and waits for the jobs it submits; its output passes through, so
 .B job=$(@wait @submit ...)
 works.
 There is no time limit unless
-.B FLOWRUN_WAIT_TIMEOUT
+.B RUNFLOW_WAIT_TIMEOUT
 is set; the job keeps running when it expires.
 .SS @cancel
 .B @cancel
@@ -396,9 +396,9 @@ A job gets only those of its own scheduler, so one workflow can carry options fo
 \&...) apply to every invocation of a directive, before the call's own.
 .PP
 Both add up:
-.BI FLOWRUN_ NAME _OPTIONS
+.BI RUNFLOW_ NAME _OPTIONS
 in the configuration, then
-.BI "flowrun \-\-" NAME \-options\fR,\fP
+.BI "runflow \-\-" NAME \-options\fR,\fP
 then the call's options.
 Option strings are split like a shell command line, without expanding anything:
 .B \-o \(dq\-\-a=\(aqx y\(aq \-\-b=2\(dq
@@ -407,13 +407,13 @@ passes
 and
 .BR \-\-b=2 .
 .SH INVOCATION
-.B "flowrun SCRIPT"
+.B "runflow SCRIPT"
 runs
 .I SCRIPT
-in flowrun's bash (it need not be executable):
+in runflow's bash (it need not be executable):
 .B $0
 is
-.BR flowrun ,
+.BR runflow ,
 the script's path is
 .BR ${BASH_SOURCE[0]} ,
 and variables, loops and
@@ -424,12 +424,12 @@ An unknown directive stops it (exit status 127) with a suggestion, e.g.
 .BR "Unknown directive: @flwo (did you mean @flow?)" .
 On exit and on HUP, INT, PIPE or TERM the run's job list is removed; jobs already submitted keep running.
 A script with its own EXIT trap must call
-.B flowrun::workflow_exit
+.B runflow::workflow_exit
 from it.
 .SH SCHEDULERS
 With
 .BR auto ,
-.B flowrun
+.B runflow
 uses localq; the planned backends will be chosen when their commands
 .RB ( bsub ,
 .BR sinfo ,
@@ -444,7 +444,7 @@ A queue for one machine and user, without a daemon.
 A job uses
 .B \-n
 of
-.B FLOWRUN_LOCALQ_SLOTS
+.B RUNFLOW_LOCALQ_SLOTS
 slots (default: the number of CPUs); jobs start first in, first out among those whose dependencies are met, and a job that does not fit waits.
 A job whose process dies is FAILED; cancelling kills its process group;
 .B @wait
@@ -455,7 +455,7 @@ so job IDs are local to the machine.
 Slots are not enforced: more threads than slots oversubscribe the machine.
 .PP
 .EX
-$ flowrun \-\-jobs
+$ runflow \-\-jobs
 localq: slots 3/96 in use
 ID     STATUS      NP QUEUE    NAME       DEPENDS EXIT   ELAPSED  COMMAND
 13     RUNNING      3 normal   base       \-              0:00:01  @mpi @flow A.DATA
@@ -470,10 +470,10 @@ On sites where many small jobs are costly, localq can run them inside one alloca
 .EX
 #!/usr/bin/env bash
 #SBATCH \-\-ntasks=64 \-\-time=24:00:00
-export FLOWRUN_SCHEDULER=localq FLOWRUN_LOCALQ_SLOTS=$SLURM_NTASKS
-export FLOWRUN_LOCALQ_DIR=/var/tmp/flowrun\-$(id \-u)/$SLURM_JOB_ID
-export FLOWRUN_MPI_LAUNCHER_LOCALQ=\(aqsrun \-\-exact \-\-ntasks={np}\(aq
-flowrun examples/6_history_match.sh
+export RUNFLOW_SCHEDULER=localq RUNFLOW_LOCALQ_SLOTS=$SLURM_NTASKS
+export RUNFLOW_LOCALQ_DIR=/var/tmp/runflow\-$(id \-u)/$SLURM_JOB_ID
+export RUNFLOW_MPI_LAUNCHER_LOCALQ=\(aqsrun \-\-exact \-\-ntasks={np}\(aq
+runflow examples/6_history_match.sh
 .EE
 .PP
 Without
@@ -486,9 +486,9 @@ claims the whole allocation and the runs execute one after another.
 runs the workflow but submits, waits for, cancels and runs nothing: it prints each job with a fake ID, checks the directive each job would run (options, deck, Flow version, launcher) and reports problems as warnings, and ends with the number of jobs.
 It works for the planned schedulers too.
 Plain commands in the script still run; scripts can test
-.BR $FLOWRUN_DRY_RUN .
+.BR $RUNFLOW_DRY_RUN .
 .SH "INTERACTIVE USE"
-.B "flowrun \-\-shell"
+.B "runflow \-\-shell"
 .RI [ OPTION ]...
 starts a bash with your
 .IR ~/.bashrc ,
@@ -496,22 +496,22 @@ the directives and the options applied;
 .B exit
 leaves it.
 In a running bash,
-.B "source flowrun.bash"
+.B "source runflow.bash"
 .RI [ OPTION ]...
 does the same in place.
 .PP
 .EX
-(flowrun localq 2025.04) $ job=$(@submit \-n 8 @mpi @flow CASE.DATA)
-(flowrun localq 2025.04) $ @flowpy \-c \(aqimport opm.io\(aq
-[flowrun] Job localq:12 completed
+(runflow localq 2025.04) $ job=$(@submit \-n 8 @mpi @flow CASE.DATA)
+(runflow localq 2025.04) $ @flowpy \-c \(aqimport opm.io\(aq
+[runflow] Job localq:12 completed
 .EE
 .PP
 The prompt shows the scheduler and the Flow version
-.RB ( FLOWRUN_PROMPT=false :
+.RB ( RUNFLOW_PROMPT=false :
 not); Tab completes directives, their options, Flow versions, decks and job IDs; finished jobs are reported before the prompt
-.RB ( FLOWRUN_NOTIFY ,
-.BR FLOWRUN_NOTIFY_INTERVAL ).
-.B flowrun
+.RB ( RUNFLOW_NOTIFY ,
+.BR RUNFLOW_NOTIFY_INTERVAL ).
+.B runflow
 and its man page are added to
 .B PATH
 and
@@ -527,24 +527,24 @@ A script can load the directives itself, to run also as
 .PP
 .EX
 #!/usr/bin/env bash
-source flowrun.bash || exit 1
-flowrun::setup \-n 8 \-\-flow\-version 2025.04 || exit 1
+source runflow.bash || exit 1
+runflow::setup \-n 8 \-\-flow\-version 2025.04 || exit 1
 @mpi @flow "$1"
 .EE
 .PP
 bash finds
-.I flowrun.bash
+.I runflow.bash
 through
 .BR PATH ,
 next to
-.BR flowrun ;
+.BR runflow ;
 without
 .B PATH
 lookup:
-.BR "source \(dq$(flowrun \-\-library)\(dq" .
-.B flowrun::setup
+.BR "source \(dq$(runflow \-\-library)\(dq" .
+.B runflow::setup
 takes the options of
-.B flowrun
+.B runflow
 (not
 .BR \-c ,
 .BR \-\-jobs ,
@@ -552,23 +552,23 @@ takes the options of
 The script then runs as described in
 .BR INVOCATION ,
 under
-.B flowrun
+.B runflow
 too.
 .SH CONFIGURATION
 Settings come from, later winning:
-.I etc/defaults/flowrun.conf
-in the flowrun directory (every setting, its default and an explanation; not
+.I etc/defaults/runflow.conf
+in the runflow directory (every setting, its default and an explanation; not
 edited); the files
-.I /etc/flowrun/flowrun.conf
+.I /etc/runflow/runflow.conf
 (the machine),
-.I etc/flowrun.conf
-in the flowrun directory (the site; not part of flowrun's Git repository) and
-.I ~/.config/flowrun/flowrun.conf
+.I etc/runflow.conf
+in the runflow directory (the site; not part of runflow's Git repository) and
+.I ~/.config/runflow/runflow.conf
 (you), or only
-.B FLOWRUN_CONFIG
-if set; the environment; flowrun's options; the directive's options.
+.B RUNFLOW_CONFIG
+if set; the environment; runflow's options; the directive's options.
 Options add to
-.BI FLOWRUN_ NAME _OPTIONS\fR;\fP
+.BI RUNFLOW_ NAME _OPTIONS\fR;\fP
 everything else is replaced.
 .PP
 The files are bash, read in that order: copy the lines you change from the
@@ -578,9 +578,9 @@ A list setting is extended with
 and replaced with
 .BR = .
 In
-.B FLOWRUN_FLOW_VERSIONS
+.B RUNFLOW_FLOW_VERSIONS
 and
-.BR FLOWRUN_FLOW_PYTHON_MAP ,
+.BR RUNFLOW_FLOW_PYTHON_MAP ,
 the last item of a name (or the last matching pattern) wins, so
 .B +=
 also redefines a name an earlier file set.
@@ -588,26 +588,26 @@ A file that someone besides its owner or root can write (everyone, or a
 group other than the owner's private one) is refused.
 The main settings:
 .TP
-.B FLOWRUN_FLOW_VERSIONS
+.B RUNFLOW_FLOW_VERSIONS
 Named Flow versions, for builds that share an executable name, as
 .IB NAME = PATH
 items (the executable or its directory), e.g.
 .RS
 .EX
-FLOWRUN_FLOW_VERSIONS=(\(aq2025.04=/opt/opm/2025.04/bin/flow\(aq)   # site
-FLOWRUN_FLOW_VERSIONS+=(\(aqdev=~/opm/build/bin\(aq)                # you
+RUNFLOW_FLOW_VERSIONS=(\(aq2025.04=/opt/opm/2025.04/bin/flow\(aq)   # site
+RUNFLOW_FLOW_VERSIONS+=(\(aqdev=~/opm/build/bin\(aq)                # you
 .EE
 .RE
 .TP
-.B FLOWRUN_FLOW_BIN_PATHS
+.B RUNFLOW_FLOW_BIN_PATHS
 Directories searched for Flow, in order; the entry
 .B PATH
 (the default) is
 .B PATH
 when Flow is looked up, in a job after
-.BR FLOWRUN_JOB_SETUP .
+.BR RUNFLOW_JOB_SETUP .
 .TP
-.BR FLOWRUN_FLOW_VERSION ", " FLOWRUN_FLOWPY_VERSION
+.BR RUNFLOW_FLOW_VERSION ", " RUNFLOW_FLOWPY_VERSION
 The version of
 .B @flow
 and of
@@ -618,7 +618,7 @@ without
 .BR flow ;
 empty: the same).
 .TP
-.BR FLOWRUN_FLOW_PYTHONPATH ", " FLOWRUN_FLOW_PYTHON_MAP
+.BR RUNFLOW_FLOW_PYTHONPATH ", " RUNFLOW_FLOW_PYTHON_MAP
 Where a version's opm bindings are
 .RB ( auto ,
 a template with
@@ -628,7 +628,7 @@ a template with
 or empty), and Python versions per version pattern (e.g.
 .BR "(\(aqflow2025*:3.12\(aq)" ).
 .TP
-.BI FLOWRUN_MPI_LAUNCHER_ SCHEDULER\fR,\fP " FLOWRUN_MPI_LAUNCHER_LOCAL"
+.BI RUNFLOW_MPI_LAUNCHER_ SCHEDULER\fR,\fP " RUNFLOW_MPI_LAUNCHER_LOCAL"
 MPI launcher, with
 .B {np}
 for the ranks (default
@@ -638,110 +638,100 @@ SLURM:
 Binding is the MPI library's default; several runs side by side on one machine need it off, e.g.
 .BR "mpirun \-np {np} \-\-bind\-to none" .
 .TP
-.B FLOWRUN_JOB_SETUP
+.B RUNFLOW_JOB_SETUP
 Shell commands run at the start of every job, e.g. module loads.
 .TP
-.BI FLOWRUN_DEFAULT_QUEUE_ SCHEDULER\fR,\fP " FLOWRUN_LOCALQ_SLOTS"
+.BI RUNFLOW_DEFAULT_QUEUE_ SCHEDULER\fR,\fP " RUNFLOW_LOCALQ_SLOTS"
 Default queues, and localq's slots.
 .SS "For administrators"
 .IP \(bu 2
-Install flowrun once, read-only, at a path that is the same on every node, e.g.
-.IR /shared/apps/flowrun/ VERSION :
-jobs find flowrun and extension directives at the same path.
+Install runflow once, read-only, at a path that is the same on every node, e.g.
+.IR /shared/apps/runflow/ VERSION :
+jobs find runflow and extension directives at the same path.
 .IP \(bu
 Put the site's settings in the installation's
-.IR etc/flowrun.conf :
+.IR etc/runflow.conf :
 named Flow versions, search paths,
-.B FLOWRUN_JOB_SETUP
+.B RUNFLOW_JOB_SETUP
 (e.g.
 .BR "module load opm/2025.04" ),
 MPI launchers, queues and accounts.
 One file serves every node;
-.I /etc/flowrun/flowrun.conf
+.I /etc/runflow/runflow.conf
 is for what differs between machines, and must be kept on each of them.
 .IP \(bu
 An environment module
-.RB ( "module load flowrun" )
-should only add flowrun to
+.RB ( "module load runflow" )
+should only add runflow to
 .B PATH
 and
 .BR MANPATH .
 Put the site's defaults in the installation's
-.I etc/flowrun.conf
+.I etc/runflow.conf
 instead: a setting the module exports, e.g.
-.BR "setenv FLOWRUN_FLOW_VERSION 2025.04" ,
+.BR "setenv RUNFLOW_FLOW_VERSION 2025.04" ,
 comes from the environment, which wins over every user's own configuration
 file, so a user's
-.B FLOWRUN_FLOW_VERSION=dev
+.B RUNFLOW_FLOW_VERSION=dev
 in
-.I ~/.config/flowrun/flowrun.conf
+.I ~/.config/runflow/runflow.conf
 would be silently ignored.
 In
-.IR etc/flowrun.conf ,
+.IR etc/runflow.conf ,
 the same default applies to everyone, and users can still override it.
-.IP \(bu
-ERT and Everest start Flow through an executable named
-.B flowrun
-when they find one in
-.BR PATH ,
-with arguments this
-.B flowrun
-does not accept: keep it out of the
-.B PATH
-of their jobs.
 .IP \(bu
 Nothing is enforced: users override or extend every setting in their own
 file, e.g. their builds before the site's with
-.BR "FLOWRUN_FLOW_BIN_PATHS=(~/opm/bin \(dq${FLOWRUN_FLOW_BIN_PATHS[@]}\(dq)" .
+.BR "RUNFLOW_FLOW_BIN_PATHS=(~/opm/bin \(dq${RUNFLOW_FLOW_BIN_PATHS[@]}\(dq)" .
 Limits belong to the scheduler.
 .SH ENVIRONMENT
 Every setting can also be set in the environment, except the lists
-.RB ( FLOWRUN_FLOW_VERSIONS ,
-.BR FLOWRUN_FLOW_BIN_PATHS ,
-.BR FLOWRUN_FLOW_PYTHON_MAP :
+.RB ( RUNFLOW_FLOW_VERSIONS ,
+.BR RUNFLOW_FLOW_BIN_PATHS ,
+.BR RUNFLOW_FLOW_PYTHON_MAP :
 bash cannot export them), and:
 .TP
-.B FLOWRUN_CONFIG
+.B RUNFLOW_CONFIG
 The only configuration file to read.
 .TP
-.B FLOWRUN_DEBUG=true
+.B RUNFLOW_DEBUG=true
 Print debug messages.
 .PP
 Workflow scripts share the shell with
-.BR flowrun ,
+.BR runflow ,
 so they must not define names starting with
 .BR @ ,
-.B flowrun::
+.B runflow::
 or
-.BR FLOWRUN_ .
+.BR RUNFLOW_ .
 .SH FILES
 .TP
-.I ~/.config/flowrun/flowrun.conf
+.I ~/.config/runflow/runflow.conf
 Your configuration; also
-.I /etc/flowrun/flowrun.conf
+.I /etc/runflow/runflow.conf
 and
-.I etc/flowrun.conf
-in the flowrun directory.
+.I etc/runflow.conf
+in the runflow directory.
 .TP
-.I etc/defaults/flowrun.conf
-In the flowrun directory: every setting, its default and an explanation.
+.I etc/defaults/runflow.conf
+In the runflow directory: every setting, its default and an explanation.
 .TP
-.I ~/.config/flowrun/directives/
+.I ~/.config/runflow/directives/
 Your extension directives.
 .TP
-.IR ~/.local/state/flowrun/logs/localq. HOST . ID .log
+.IR ~/.local/state/runflow/logs/localq. HOST . ID .log
 The output of a localq job without
 .BR \-o .
 .TP
-.IR /var/tmp/flowrun\- UID /localq/
+.IR /var/tmp/runflow\- UID /localq/
 localq's state: a private directory on local disk.
 .SH "EXIT STATUS"
 The script's or command's own; 1 for usage and configuration errors; 127 for an unknown directive; 129, 130, 141 or 143 when stopped by HUP, INT, PIPE or TERM.
 .SH EXAMPLES
 .EX
-flowrun \-n 4 \-c @mpi @flow CASE.DATA            # Flow here, on 4 ranks
-flowrun \-c @wait @submit \-n 8 @mpi @flow CASE.DATA # a job, waiting for it
-flowrun \-\-dry\-run \-s slurm workflow.sh            # what it would submit
+runflow \-n 4 \-c @mpi @flow CASE.DATA            # Flow here, on 4 ranks
+runflow \-c @wait @submit \-n 8 @mpi @flow CASE.DATA # a job, waiting for it
+runflow \-\-dry\-run \-s slurm workflow.sh            # what it would submit
 .EE
 .PP
 A workflow with two concurrent runs and a comparison that waits for both:
@@ -768,8 +758,8 @@ first in
 Missing tools are reported at startup.
 .SH LICENSE
 GPL-3.0-or-later: the GNU General Public License, version 3 or (at your
-option) any later version; LICENSE in the flowrun directory.
+option) any later version; LICENSE in the runflow directory.
 .SH "SEE ALSO"
 .BR mpirun (1),
 .BR flock (1).
-In the flowrun directory: docs/FLOW.md (finding Flow and its Python), docs/DIRECTIVES.md (writing directives), docs/BACKENDS.md (scheduler backends, running on clusters), docs/DEVELOPMENT.md (layout and tests).
+In the runflow directory: docs/FLOW.md (finding Flow and its Python), docs/DIRECTIVES.md (writing directives), docs/BACKENDS.md (scheduler backends, running on clusters), docs/DEVELOPMENT.md (layout and tests).

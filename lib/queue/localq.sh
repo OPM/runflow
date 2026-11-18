@@ -5,34 +5,34 @@
 #
 # Each job runs as a detached process group whose runner (localq_runner.sh)
 # schedules itself under a lock: FIFO among jobs whose dependency is met,
-# limited to FLOWRUN_LOCALQ_SLOTS slots (default: number of CPUs). No daemon is needed.
+# limited to RUNFLOW_LOCALQ_SLOTS slots (default: number of CPUs). No daemon is needed.
 #
-# State per job in $FLOWRUN_LOCALQ_DIR/<id>/: np queue depends_on output cmd status
+# State per job in $RUNFLOW_LOCALQ_DIR/<id>/: np queue depends_on output cmd status
 # exitcode pid pstart submit_time start_time end_time running.lock, and the
 # native options time_limit nice name exclusive. Active
-# (PENDING/RUNNING) jobs are listed in $FLOWRUN_LOCALQ_DIR/active/.
+# (PENDING/RUNNING) jobs are listed in $RUNFLOW_LOCALQ_DIR/active/.
 # Statuses: PENDING RUNNING COMPLETED FAILED CANCELLED.
 #
 # Waiting without polling: each runner holds an exclusive lock on its job's
 # running.lock for its whole life; the kernel releases it when the runner
 # exits (even on kill -9), which wakes up waiters blocked on a shared lock.
 #
-# Linux and macOS (with Homebrew's flock); see flowrun::backend_check_requirements.
+# Linux and macOS (with Homebrew's flock); see runflow::backend_check_requirements.
 
 # State on a local disk, per user and machine: locks behave as designed (on
 # NFS, flock is emulated with process-owned locks, which breaks the inherited
 # running.lock) and the scheduling path stays fast. A fixed path, not session
 # variables such as XDG_RUNTIME_DIR or TMPDIR, so that every shell, cron job
 # and runner of the user finds the same queue; /var/tmp survives reboots.
-# FLOWRUN_LOCALQ_DIR overrides it, e.g. one queue per pilot job.
-FLOWRUN_LOCALQ_DIR="${FLOWRUN_LOCALQ_DIR:-/var/tmp/flowrun-$UID/localq}"
+# RUNFLOW_LOCALQ_DIR overrides it, e.g. one queue per pilot job.
+RUNFLOW_LOCALQ_DIR="${RUNFLOW_LOCALQ_DIR:-/var/tmp/runflow-$UID/localq}"
 
 # One word of a command saved with printf %q (for job listings)
-FLOWRUN_LOCALQ_TOKEN="(\\\$'([^'\\\\]|\\\\.)*'|([^ \\\\]|\\\\.)+)"
-FLOWRUN_LOCALQ_RUNNER="$(dirname "${BASH_SOURCE[0]}")/localq_runner.sh"
+RUNFLOW_LOCALQ_TOKEN="(\\\$'([^'\\\\]|\\\\.)*'|([^ \\\\]|\\\\.)+)"
+RUNFLOW_LOCALQ_RUNNER="$(dirname "${BASH_SOURCE[0]}")/localq_runner.sh"
 
 # Tools localq needs beyond bash; flock is not part of macOS
-flowrun::backend_check_requirements() {
+runflow::backend_check_requirements() {
   local missing=() cmd
 
   for cmd in flock getconf ps nohup; do
@@ -43,26 +43,26 @@ flowrun::backend_check_requirements() {
   fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
-    flowrun::error "localq needs these commands, which were not found: ${missing[*]}"
-    flowrun::install_hint flock
+    runflow::error "localq needs these commands, which were not found: ${missing[*]}"
+    runflow::install_hint flock
     return 1
   fi
   
-  flowrun::localq::state_dir
+  runflow::localq::state_dir
 }
 
 # Create the state directory, private to the user. In a shared directory such
 # as /var/tmp another user could create it first or plant a symlink there, so
 # refuse a directory that is not the user's own: the default's
-# /var/tmp/flowrun-<uid>, and the state directory itself.
-flowrun::localq::state_dir() {
+# /var/tmp/runflow-<uid>, and the state directory itself.
+runflow::localq::state_dir() {
   local path
   
-  ( umask 077; mkdir -p "$FLOWRUN_LOCALQ_DIR/active" ) 2> /dev/null
-  for path in "/var/tmp/flowrun-$UID" "$FLOWRUN_LOCALQ_DIR"; do
-    [[ "$path" == "$FLOWRUN_LOCALQ_DIR" || "$FLOWRUN_LOCALQ_DIR" == "$path"/* ]] || continue
+  ( umask 077; mkdir -p "$RUNFLOW_LOCALQ_DIR/active" ) 2> /dev/null
+  for path in "/var/tmp/runflow-$UID" "$RUNFLOW_LOCALQ_DIR"; do
+    [[ "$path" == "$RUNFLOW_LOCALQ_DIR" || "$RUNFLOW_LOCALQ_DIR" == "$path"/* ]] || continue
     if [[ -L "$path" || ! -d "$path" || ! -O "$path" ]]; then
-      flowrun::error "localq: $path is not a directory owned by you; not using it (see FLOWRUN_LOCALQ_DIR)"
+      runflow::error "localq: $path is not a directory owned by you; not using it (see RUNFLOW_LOCALQ_DIR)"
       return 1
     fi
     chmod 700 "$path" 2> /dev/null
@@ -74,70 +74,70 @@ flowrun::localq::state_dir() {
 # field would make the lock the bottleneck as the queue grows.
 
 # Number of slots, into variable VAR (cached in this shell: getconf forks)
-flowrun::localq::slots() {
-  [[ -n "${_FLOWRUN_LOCALQ_SLOTS_CACHE:-}" ]] || _FLOWRUN_LOCALQ_SLOTS_CACHE="${FLOWRUN_LOCALQ_SLOTS:-$(getconf _NPROCESSORS_ONLN)}"
-  printf -v "$1" '%s' "$_FLOWRUN_LOCALQ_SLOTS_CACHE"
+runflow::localq::slots() {
+  [[ -n "${_RUNFLOW_LOCALQ_SLOTS_CACHE:-}" ]] || _RUNFLOW_LOCALQ_SLOTS_CACHE="${RUNFLOW_LOCALQ_SLOTS:-$(getconf _NPROCESSORS_ONLN)}"
+  printf -v "$1" '%s' "$_RUNFLOW_LOCALQ_SLOTS_CACHE"
 }
 
 # Current time in seconds, into variable VAR
-flowrun::localq::now() {
+runflow::localq::now() {
   printf -v "$1" '%(%s)T' -1
 }
 
 # Write a job field atomically
-flowrun::localq::set() {
+runflow::localq::set() {
   local dir="$1" key="$2" value="$3"
   printf '%s\n' "$value" > "$dir/$key.tmp" && mv "$dir/$key.tmp" "$dir/$key"
 }
 
-# Read a job field into variable VAR (empty if missing): flowrun::localq::read VAR DIR KEY
-flowrun::localq::read() {
+# Read a job field into variable VAR (empty if missing): runflow::localq::read VAR DIR KEY
+runflow::localq::read() {
   local _line=""
   { IFS= read -r _line || true; } 2> /dev/null < "$2/$3"
   printf -v "$1" '%s' "$_line"
 }
 
 # Print a job field (for code off the scheduling path)
-flowrun::localq::get() {
+runflow::localq::get() {
   local _value
-  flowrun::localq::read _value "$1" "$2"
+  runflow::localq::read _value "$1" "$2"
   [[ -z "$_value" ]] || echo "$_value"
 }
 
 # Process start time into variable VAR; empty if not running.
-#   Usage: flowrun::localq::pstart_into VAR PID
+#   Usage: runflow::localq::pstart_into VAR PID
 # Linux: clock ticks since boot from /proc (no fork). Elsewhere (macOS): ps
 # start time (1 s resolution; forks, which is why runners reap only every few
 # seconds). Both variants exist everywhere, so the tests run the ps one on
 # Linux too; the choice is made once here, out of the reap loop.
 # Their locals are prefixed _pstart_: printf -v writes the innermost variable
 # of that name, so a local named like the caller's VAR would swallow the value.
-flowrun::localq::pstart_into_proc() {
+runflow::localq::pstart_into_proc() {
   local _pstart_stat="" _pstart_fields
   { read -r _pstart_stat || true; } 2> /dev/null < "/proc/$2/stat"
   _pstart_fields=(${_pstart_stat##*) })
   printf -v "$1" '%s' "${_pstart_fields[19]:-}"
 }
-flowrun::localq::pstart_into_ps() {
+runflow::localq::pstart_into_ps() {
   local _pstart_start
   _pstart_start=$(ps -o lstart= -p "$2" 2> /dev/null)
   printf -v "$1" '%s' "${_pstart_start// /_}"
 }
 if [[ -d /proc/self ]]; then
-  flowrun::localq::pstart_into() { flowrun::localq::pstart_into_proc "$@"; }
+  runflow::localq::pstart_into() { runflow::localq::pstart_into_proc "$@"; }
 else
-  flowrun::localq::pstart_into() { flowrun::localq::pstart_into_ps "$@"; }
+  runflow::localq::pstart_into() { runflow::localq::pstart_into_ps "$@"; }
 fi
 
-flowrun::localq::pstart() {
+runflow::localq::pstart() {
   local start
-  flowrun::localq::pstart_into start "$1"
+  runflow::localq::pstart_into start "$1"
   echo "$start"
 }
 
 # Run a command in a new session, keeping its pid (for $!). setsid is not
 # part of macOS; perl (which is) does the same.
-flowrun::localq::detach() {
+runflow::localq::detach() {
   if command -v setsid > /dev/null; then
     exec setsid "$@"
   fi
@@ -145,55 +145,55 @@ flowrun::localq::detach() {
 }
 
 # Is the job's runner alive? (start time guards against pid reuse)
-flowrun::localq::alive() {
+runflow::localq::alive() {
   local pid pstart now
-  flowrun::localq::read pid "$1" pid
+  runflow::localq::read pid "$1" pid
   [[ -n "$pid" ]] || return 1
-  flowrun::localq::read pstart "$1" pstart
-  flowrun::localq::pstart_into now "$pid"
+  runflow::localq::read pstart "$1" pstart
+  runflow::localq::pstart_into now "$pid"
   [[ -n "$now" && "$now" == "$pstart" ]]
 }
 
 # Record a final status (caller holds the lock)
-flowrun::localq::finish() {
+runflow::localq::finish() {
   local dir="$1" status="$2" exitcode="${3:-}" now
-  [[ -n "$exitcode" ]] && flowrun::localq::set "$dir" exitcode "$exitcode"
-  flowrun::localq::now now
-  flowrun::localq::set "$dir" end_time "$now"
-  flowrun::localq::set "$dir" status "$status"
-  rm -f "$FLOWRUN_LOCALQ_DIR/active/${dir##*/}"
+  [[ -n "$exitcode" ]] && runflow::localq::set "$dir" exitcode "$exitcode"
+  runflow::localq::now now
+  runflow::localq::set "$dir" end_time "$now"
+  runflow::localq::set "$dir" status "$status"
+  rm -f "$RUNFLOW_LOCALQ_DIR/active/${dir##*/}"
 }
 
 # Mark active jobs whose runner died as FAILED (caller holds the lock)
-flowrun::localq::reap() {
+runflow::localq::reap() {
   local f
-  for f in "$FLOWRUN_LOCALQ_DIR"/active/*; do
+  for f in "$RUNFLOW_LOCALQ_DIR"/active/*; do
     [[ -e "$f" ]] || continue
-    flowrun::localq::alive "$FLOWRUN_LOCALQ_DIR/${f##*/}" || flowrun::localq::finish "$FLOWRUN_LOCALQ_DIR/${f##*/}" FAILED
+    runflow::localq::alive "$RUNFLOW_LOCALQ_DIR/${f##*/}" || runflow::localq::finish "$RUNFLOW_LOCALQ_DIR/${f##*/}" FAILED
   done
 }
 
 # Slots a running job uses, into variable VAR: its np, or every slot if it
-# is exclusive.  Usage: flowrun::localq::need VAR DIR SLOTS
-flowrun::localq::need() {
+# is exclusive.  Usage: runflow::localq::need VAR DIR SLOTS
+runflow::localq::need() {
   local _np _exclusive
-  flowrun::localq::read _exclusive "$2" exclusive
+  runflow::localq::read _exclusive "$2" exclusive
   if [[ -n "$_exclusive" ]]; then
     printf -v "$1" '%s' "$3"
   else
-    flowrun::localq::read _np "$2" np
+    runflow::localq::read _np "$2" np
     printf -v "$1" '%s' "${_np:-0}"
   fi
 }
 
 # Dependency state of a job (all dependencies must complete), into variable
-# VAR: ok | wait | failed.  Usage: flowrun::localq::dep_state VAR DIR
-flowrun::localq::dep_state() {
+# VAR: ok | wait | failed.  Usage: runflow::localq::dep_state VAR DIR
+runflow::localq::dep_state() {
   local _deps _dep _status _state=ok
-  flowrun::localq::read _deps "$2" depends_on
+  runflow::localq::read _deps "$2" depends_on
   
   for _dep in ${_deps//,/ }; do
-    flowrun::localq::read _status "$FLOWRUN_LOCALQ_DIR/$_dep" status
+    runflow::localq::read _status "$RUNFLOW_LOCALQ_DIR/$_dep" status
     case "$_status" in
       COMPLETED) ;;
       PENDING|RUNNING) _state=wait ;;
@@ -206,38 +206,38 @@ flowrun::localq::dep_state() {
 
 # Try to start a job (caller holds the lock).
 # Returns 0 if started, 1 if it must wait, 2 if it can never run.
-flowrun::localq::try_start() {
-  local id="$1" dir="$FLOWRUN_LOCALQ_DIR/$1"
+runflow::localq::try_start() {
+  local id="$1" dir="$RUNFLOW_LOCALQ_DIR/$1"
   local np slots used=0 f other odir status onp dep now
 
   # Only a pending job starts: one already finished (reaped as FAILED,
   # CANCELLED) never runs, whatever its runner still does
-  flowrun::localq::read status "$dir" status
+  runflow::localq::read status "$dir" status
   [[ "$status" == PENDING ]] || return 2
 
-  flowrun::localq::dep_state dep "$dir"
+  runflow::localq::dep_state dep "$dir"
   case "$dep" in
-    failed) flowrun::localq::finish "$dir" FAILED; return 2 ;;
+    failed) runflow::localq::finish "$dir" FAILED; return 2 ;;
     wait) return 1 ;;
   esac
   
-  flowrun::localq::slots slots
-  flowrun::localq::need np "$dir" "$slots"
+  runflow::localq::slots slots
+  runflow::localq::need np "$dir" "$slots"
   
-  for f in "$FLOWRUN_LOCALQ_DIR"/active/*; do
+  for f in "$RUNFLOW_LOCALQ_DIR"/active/*; do
     [[ -e "$f" ]] || continue
     other=${f##*/}
-    odir="$FLOWRUN_LOCALQ_DIR/$other"
-    flowrun::localq::read status "$odir" status
+    odir="$RUNFLOW_LOCALQ_DIR/$other"
+    runflow::localq::read status "$odir" status
     case "$status" in
       RUNNING)
-        flowrun::localq::need onp "$odir" "$slots"
+        runflow::localq::need onp "$odir" "$slots"
         used=$((used + onp))
         ;;
       PENDING)
         # FIFO: an older job that is ready to run goes first
         if (( other < id )); then
-          flowrun::localq::dep_state dep "$odir"
+          runflow::localq::dep_state dep "$odir"
           [[ "$dep" == ok ]] && return 1
         fi
         ;;
@@ -245,9 +245,9 @@ flowrun::localq::try_start() {
   done
   
   if (( used + np <= slots )); then
-    flowrun::localq::now now
-    flowrun::localq::set "$dir" start_time "$now"
-    flowrun::localq::set "$dir" status RUNNING
+    runflow::localq::now now
+    runflow::localq::set "$dir" start_time "$now"
+    runflow::localq::set "$dir" status RUNNING
     return 0
   fi
   return 1
@@ -256,7 +256,7 @@ flowrun::localq::try_start() {
 # Time limit in seconds, as SLURM writes it: MINUTES, MINUTES:SECONDS,
 # HOURS:MINUTES:SECONDS, DAYS-HOURS, DAYS-HOURS:MINUTES, DAYS-HOURS:MINUTES:SECONDS.
 # Returns 1 for anything else.
-flowrun::localq::time_seconds() {
+runflow::localq::time_seconds() {
   local value="$1" days=0 parts
   [[ "$value" =~ ^([0-9]+-)?[0-9]+(:[0-9]+){0,2}$ ]] || return 1
   if [[ "$value" == *-* ]]; then
@@ -275,11 +275,11 @@ flowrun::localq::time_seconds() {
 
 # Native options (--localq-options), spelled as in SLURM, into the variables
 # limit (seconds), niceness, name and exclusive of the caller
-flowrun::localq::parse_options() {
+runflow::localq::parse_options() {
   local word value words i=0
   local supported="supported: --time, --nice, --job-name, --exclusive"
-  flowrun::split_options "$1" --localq-options || return 1
-  words=("${_FLOWRUN_WORDS[@]}")
+  runflow::split_options "$1" --localq-options || return 1
+  words=("${_RUNFLOW_WORDS[@]}")
 
   while (( i < ${#words[@]} )); do
     word=${words[i]}
@@ -291,7 +291,7 @@ flowrun::localq::parse_options() {
         ;;
       --time|--job-name)
         if (( i >= ${#words[@]} )); then
-          flowrun::error "localq: $word needs a value"
+          runflow::error "localq: $word needs a value"
           return 1
         fi
         value=${words[i]}
@@ -299,22 +299,22 @@ flowrun::localq::parse_options() {
         ;;
       --nice|--exclusive) value="" ;;
       *)
-        flowrun::error "localq: unknown option $word ($supported)"
+        runflow::error "localq: unknown option $word ($supported)"
         return 1
         ;;
     esac
 
     case "$word" in
       --time)
-        limit=$(flowrun::localq::time_seconds "$value") || {
-          flowrun::error "localq: invalid --time: $value (MINUTES, MM:SS, HH:MM:SS or DAYS-HH[:MM[:SS]])"
+        limit=$(runflow::localq::time_seconds "$value") || {
+          runflow::error "localq: invalid --time: $value (MINUTES, MM:SS, HH:MM:SS or DAYS-HH[:MM[:SS]])"
           return 1
         }
         ;;
       --nice)
         niceness=${value:-10}
         if ! [[ "$niceness" =~ ^[0-9]+$ ]] || (( 10#$niceness > 19 )); then
-          flowrun::error "localq: --nice must be 0..19 (got: $value)"
+          runflow::error "localq: --nice must be 0..19 (got: $value)"
           return 1
         fi
         niceness=$((10#$niceness))
@@ -326,44 +326,44 @@ flowrun::localq::parse_options() {
 }
 
 # Submit job to localq
-flowrun::backend_submit_job() {
+runflow::backend_submit_job() {
   local queue="$1" np="$2" output="$3" depends_on="$4" options="$5"
   shift 5
   local slots id dir now limit="" niceness="" name="" exclusive=""
 
-  flowrun::localq::parse_options "$options" || return 1
+  runflow::localq::parse_options "$options" || return 1
 
-  flowrun::localq::slots slots
+  runflow::localq::slots slots
   if ! [[ "$np" =~ ^[1-9][0-9]*$ ]] || (( np > slots )); then
-    flowrun::error "localq: number of processes must be 1..$slots (got: $np)"
+    runflow::error "localq: number of processes must be 1..$slots (got: $np)"
     return 1
   fi
 
   local dep
   for dep in ${depends_on//,/ }; do
-    if [[ ! "$dep" =~ ^[0-9]+$ || ! -f "$FLOWRUN_LOCALQ_DIR/$dep/status" ]]; then
-      flowrun::error "localq: unknown dependency job: $dep"
+    if [[ ! "$dep" =~ ^[0-9]+$ || ! -f "$RUNFLOW_LOCALQ_DIR/$dep/status" ]]; then
+      runflow::error "localq: unknown dependency job: $dep"
       return 1
     fi
   done
 
-  mkdir -p "$FLOWRUN_LOCALQ_DIR/active" || return 1
+  mkdir -p "$RUNFLOW_LOCALQ_DIR/active" || return 1
 
   {
     flock 9
-    flowrun::localq::read id "$FLOWRUN_LOCALQ_DIR" counter
+    runflow::localq::read id "$RUNFLOW_LOCALQ_DIR" counter
     id=$(( ${id:-0} + 1 ))
-    echo "$id" > "$FLOWRUN_LOCALQ_DIR/counter"
+    echo "$id" > "$RUNFLOW_LOCALQ_DIR/counter"
     
     # Not visible to other jobs until its active marker exists: write the
     # fields directly (no temporary file + mv per field)
-    dir="$FLOWRUN_LOCALQ_DIR/$id"
+    dir="$RUNFLOW_LOCALQ_DIR/$id"
     mkdir "$dir" || return 1
-    flowrun::localq::now now
+    runflow::localq::now now
     printf '%s\n' "$np" > "$dir/np"
     printf '%s\n' "$queue" > "$dir/queue"
     printf '%s\n' "$depends_on" > "$dir/depends_on"
-    printf '%s\n' "${output:-${FLOWRUN_LOG_DIR}/localq.${HOSTNAME%%.*}.$id.log}" > "$dir/output"
+    printf '%s\n' "${output:-${RUNFLOW_LOG_DIR}/localq.${HOSTNAME%%.*}.$id.log}" > "$dir/output"
     printf '%q ' "$@" > "$dir/cmd"
     printf '\n' >> "$dir/cmd"
     printf '%s\n' "$now" > "$dir/submit_time"
@@ -372,7 +372,7 @@ flowrun::backend_submit_job() {
     printf '%s\n' "$name" > "$dir/name"
     printf '%s\n' "$exclusive" > "$dir/exclusive"
     printf '%s\n' PENDING > "$dir/status"
-    : > "$FLOWRUN_LOCALQ_DIR/active/$id"
+    : > "$RUNFLOW_LOCALQ_DIR/active/$id"
 
     # Detached runner in its own session; must not inherit the queue lock
     # (fd 9). It inherits fd 8, already holding running.lock exclusively, so
@@ -382,11 +382,11 @@ flowrun::backend_submit_job() {
     (
       exec 8> "$dir/running.lock"
       flock -x 8
-      flowrun::localq::detach nohup "$BASH" "$FLOWRUN_LOCALQ_RUNNER" "$dir" "$@" </dev/null >/dev/null 2>&1 9>&- &
+      runflow::localq::detach nohup "$BASH" "$RUNFLOW_LOCALQ_RUNNER" "$dir" "$@" </dev/null >/dev/null 2>&1 9>&- &
       echo "$!" > "$dir/pid"
     )
-    flowrun::localq::set "$dir" pstart "$(flowrun::localq::pstart "$(flowrun::localq::get "$dir" pid)")"
-  } 9>"$FLOWRUN_LOCALQ_DIR/lock"
+    runflow::localq::set "$dir" pstart "$(runflow::localq::pstart "$(runflow::localq::get "$dir" pid)")"
+  } 9>"$RUNFLOW_LOCALQ_DIR/lock"
 
   echo "$id"
 }
@@ -394,14 +394,14 @@ flowrun::backend_submit_job() {
 # Block until a job is final and print its status, without polling: sleep on
 # a shared lock of running.lock until the runner exits, then re-check (which
 # also covers spurious wake-ups and runners that died).
-# Usage: flowrun::backend_wait_job JOBID [TIMEOUT]  (seconds, 0 = none)
+# Usage: runflow::backend_wait_job JOBID [TIMEOUT]  (seconds, 0 = none)
 # Returns 2 on timeout, 1 (and UNKNOWN) for an unknown job.
-flowrun::backend_wait_job() {
-  local id="$1" timeout="${2:-0}" dir="$FLOWRUN_LOCALQ_DIR/$1" status deadline=0 left
+runflow::backend_wait_job() {
+  local id="$1" timeout="${2:-0}" dir="$RUNFLOW_LOCALQ_DIR/$1" status deadline=0 left
   (( timeout > 0 )) && deadline=$(( $(date +%s) + timeout ))
 
   while true; do
-    status=$(flowrun::backend_job_status "$id") || { echo "$status"; return 1; }
+    status=$(runflow::backend_job_status "$id") || { echo "$status"; return 1; }
     case "$status" in
       PENDING|RUNNING) ;;
       *) echo "$status"; return 0 ;;
@@ -421,67 +421,67 @@ flowrun::backend_wait_job() {
 }
 
 # Get job status: PENDING RUNNING COMPLETED FAILED CANCELLED (UNKNOWN if missing)
-flowrun::backend_job_status() {
-  local id="$1" dir="$FLOWRUN_LOCALQ_DIR/$1"
+runflow::backend_job_status() {
+  local id="$1" dir="$RUNFLOW_LOCALQ_DIR/$1"
 
   if [[ ! -f "$dir/status" ]]; then
-    flowrun::error "localq: unknown job: $id"
+    runflow::error "localq: unknown job: $id"
     echo UNKNOWN
     return 1
   fi
 
-  { flock 9; flowrun::localq::reap; } 9>"$FLOWRUN_LOCALQ_DIR/lock"
-  flowrun::localq::get "$dir" status
+  { flock 9; runflow::localq::reap; } 9>"$RUNFLOW_LOCALQ_DIR/lock"
+  runflow::localq::get "$dir" status
 }
 
 # Cancel a pending or running job (kills its process group)
-flowrun::backend_cancel_job() {
-  local id="$1" dir="$FLOWRUN_LOCALQ_DIR/$1"
+runflow::backend_cancel_job() {
+  local id="$1" dir="$RUNFLOW_LOCALQ_DIR/$1"
 
   {
     flock 9
-    case "$(flowrun::localq::get "$dir" status)" in
+    case "$(runflow::localq::get "$dir" status)" in
       PENDING|RUNNING)
-        flowrun::localq::alive "$dir" && kill -TERM -- "-$(flowrun::localq::get "$dir" pid)" 2>/dev/null
-        flowrun::localq::finish "$dir" CANCELLED
+        runflow::localq::alive "$dir" && kill -TERM -- "-$(runflow::localq::get "$dir" pid)" 2>/dev/null
+        runflow::localq::finish "$dir" CANCELLED
         ;;
       "")
-        flowrun::error "localq: unknown job: $id"
+        runflow::error "localq: unknown job: $id"
         return 1
         ;;
       *)
-        flowrun::error "localq: job $id is not pending or running"
+        runflow::error "localq: job $id is not pending or running"
         return 1
         ;;
     esac
-  } 9>"$FLOWRUN_LOCALQ_DIR/lock"
+  } 9>"$RUNFLOW_LOCALQ_DIR/lock"
 }
 
 # Format seconds as H:MM:SS
-flowrun::localq::duration() {
+runflow::localq::duration() {
   printf '%d:%02d:%02d' $(($1 / 3600)) $(($1 % 3600 / 60)) $(($1 % 60))
 }
 
 # List jobs: pending/running, or every job with "all"
-flowrun::backend_list_jobs() {
+runflow::backend_list_jobs() {
   local mode="${1:-active}"
   local id dir status np queue name depends_on exitcode start end elapsed cmd used=0 ids slots need
   
-  mkdir -p "$FLOWRUN_LOCALQ_DIR/active" || return 1
-  { flock 9; flowrun::localq::reap; } 9>"$FLOWRUN_LOCALQ_DIR/lock"
+  mkdir -p "$RUNFLOW_LOCALQ_DIR/active" || return 1
+  { flock 9; runflow::localq::reap; } 9>"$RUNFLOW_LOCALQ_DIR/lock"
   
-  flowrun::localq::slots slots
-  for id in $(ls "$FLOWRUN_LOCALQ_DIR/active"); do
-    dir="$FLOWRUN_LOCALQ_DIR/$id"
-    [[ "$(flowrun::localq::get "$dir" status)" == RUNNING ]] || continue
-    flowrun::localq::need need "$dir" "$slots"
+  runflow::localq::slots slots
+  for id in $(ls "$RUNFLOW_LOCALQ_DIR/active"); do
+    dir="$RUNFLOW_LOCALQ_DIR/$id"
+    [[ "$(runflow::localq::get "$dir" status)" == RUNNING ]] || continue
+    runflow::localq::need need "$dir" "$slots"
     used=$((used + need))
   done
   
   if [[ "$mode" == all ]]; then
-    ids=$(ls "$FLOWRUN_LOCALQ_DIR" | grep -E '^[0-9]+$' | sort -n)
+    ids=$(ls "$RUNFLOW_LOCALQ_DIR" | grep -E '^[0-9]+$' | sort -n)
   else
-    ids=$(ls "$FLOWRUN_LOCALQ_DIR/active" | sort -n)
+    ids=$(ls "$RUNFLOW_LOCALQ_DIR/active" | sort -n)
   fi
   
   echo "localq: slots $used/$slots in use"
@@ -490,7 +490,7 @@ flowrun::backend_list_jobs() {
     # Finished jobs are only listed with --jobs=all: say they exist
     local finished=0 dir
     if [[ "$mode" != all ]]; then
-      for dir in "$FLOWRUN_LOCALQ_DIR"/[0-9]*; do
+      for dir in "$RUNFLOW_LOCALQ_DIR"/[0-9]*; do
         [[ -d "$dir" ]] && finished=$((finished + 1))
       done
     fi
@@ -505,25 +505,25 @@ flowrun::backend_list_jobs() {
   printf '%-6s %-9s %4s %-8s %-10s %-7s %4s %9s  %s\n' ID STATUS NP QUEUE NAME DEPENDS EXIT ELAPSED COMMAND
   
   for id in $ids; do
-    dir="$FLOWRUN_LOCALQ_DIR/$id"
-    status=$(flowrun::localq::get "$dir" status)
-    start=$(flowrun::localq::get "$dir" start_time)
-    end=$(flowrun::localq::get "$dir" end_time)
+    dir="$RUNFLOW_LOCALQ_DIR/$id"
+    status=$(runflow::localq::get "$dir" status)
+    start=$(runflow::localq::get "$dir" start_time)
+    end=$(runflow::localq::get "$dir" end_time)
     
     elapsed=-
-    [[ -n "$start" ]] && elapsed=$(flowrun::localq::duration $(( ${end:-$(date +%s)} - start )))
+    [[ -n "$start" ]] && elapsed=$(runflow::localq::duration $(( ${end:-$(date +%s)} - start )))
     
-    # Hide the submission wrappers (bash -c '...' flowrun-job DIR SETUP, the
-    # FLOWRUN_...=value settings, flowrun -n N -c) and truncate
-    cmd=$(flowrun::localq::get "$dir" cmd | sed -E "s/^bash -c $FLOWRUN_LOCALQ_TOKEN flowrun-job $FLOWRUN_LOCALQ_TOKEN $FLOWRUN_LOCALQ_TOKEN //; s/^(FLOWRUN_[A-Z0-9_]+=$FLOWRUN_LOCALQ_TOKEN? )+//; s/^[^ ]*\/flowrun -n [0-9]+ -c //; s/ $//")
+    # Hide the submission wrappers (bash -c '...' runflow-job DIR SETUP, the
+    # RUNFLOW_...=value settings, runflow -n N -c) and truncate
+    cmd=$(runflow::localq::get "$dir" cmd | sed -E "s/^bash -c $RUNFLOW_LOCALQ_TOKEN runflow-job $RUNFLOW_LOCALQ_TOKEN $RUNFLOW_LOCALQ_TOKEN //; s/^(RUNFLOW_[A-Z0-9_]+=$RUNFLOW_LOCALQ_TOKEN? )+//; s/^[^ ]*\/runflow -n [0-9]+ -c //; s/ $//")
     (( ${#cmd} > 60 )) && cmd="${cmd:0:57}..."
     
-    flowrun::localq::read np "$dir" np
-    flowrun::localq::read queue "$dir" queue
-    flowrun::localq::read name "$dir" name
+    runflow::localq::read np "$dir" np
+    runflow::localq::read queue "$dir" queue
+    runflow::localq::read name "$dir" name
     (( ${#name} > 10 )) && name="${name:0:9}~"
-    flowrun::localq::read depends_on "$dir" depends_on
-    flowrun::localq::read exitcode "$dir" exitcode
+    runflow::localq::read depends_on "$dir" depends_on
+    runflow::localq::read exitcode "$dir" exitcode
     printf '%-6s %-9s %4s %-8s %-10s %-7s %4s %9s  %s\n' "$id" "$status" "$np" "$queue" \
       "${name:--}" "${depends_on:--}" "${exitcode:--}" "$elapsed" "$cmd"
   done

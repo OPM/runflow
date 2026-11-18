@@ -2,95 +2,95 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 OPM-OP AS
 # Configuration: the defaults file, the configuration files and their order,
-# FLOWRUN_CONFIG, the environment's precedence, standard file locations.
+# RUNFLOW_CONFIG, the environment's precedence, standard file locations.
 # (The /etc file is not tested: it needs root.)
 
-# A copy of flowrun in the sandbox, so that its etc/ can be written, and no
-# FLOWRUN_CONFIG: the files are searched
+# A copy of runflow in the sandbox, so that its etc/ can be written, and no
+# RUNFLOW_CONFIG: the files are searched
 use_installation_copy() {
   mkdir -p "$SANDBOX/install/etc"
-  cp -r "$ROOT/flowrun" "$ROOT/flowrun.bash" "$ROOT/lib" "$ROOT/VERSION" "$SANDBOX/install/"
+  cp -r "$ROOT/runflow" "$ROOT/runflow.bash" "$ROOT/lib" "$ROOT/VERSION" "$SANDBOX/install/"
   cp -r "$ROOT/etc/defaults" "$SANDBOX/install/etc/"
-  FLOWRUN="$SANDBOX/install/flowrun"
-  unset FLOWRUN_CONFIG
+  RUNFLOW="$SANDBOX/install/runflow"
+  unset RUNFLOW_CONFIG
   export XDG_CONFIG_HOME="$SANDBOX/xdg-config" XDG_STATE_HOME="$SANDBOX/xdg-state"
-  mkdir -p "$XDG_CONFIG_HOME/flowrun"
+  mkdir -p "$XDG_CONFIG_HOME/runflow"
 }
 
-# Print a setting as flowrun sees it
+# Print a setting as runflow sees it
 setting() {
-  "$FLOWRUN" -c bash -c 'source "$1/lib/flowrun.sh"; echo "${!2}"' _ "$(dirname "$FLOWRUN")" "$1"
+  "$RUNFLOW" -c bash -c 'source "$1/lib/runflow.sh"; echo "${!2}"' _ "$(dirname "$RUNFLOW")" "$1"
 }
 
 test_neutral_built_in_defaults() {
   use_installation_copy
-  assert_eq "$(setting FLOWRUN_FLOW_VERSION)" flow
-  assert_eq "$(setting FLOWRUN_SCHEDULER)" auto
-  assert_eq "$(setting FLOWRUN_FLOW_PYTHONPATH)" auto
-  assert_eq "$(setting FLOWRUN_DEFAULT_QUEUE_SLURM)" ""
-  run "$FLOWRUN" -c bash -c 'source "$1/lib/flowrun.sh"; echo "${FLOWRUN_FLOW_BIN_PATHS[*]}"' _ "$SANDBOX/install"
+  assert_eq "$(setting RUNFLOW_FLOW_VERSION)" flow
+  assert_eq "$(setting RUNFLOW_SCHEDULER)" auto
+  assert_eq "$(setting RUNFLOW_FLOW_PYTHONPATH)" auto
+  assert_eq "$(setting RUNFLOW_DEFAULT_QUEUE_SLURM)" ""
+  run "$RUNFLOW" -c bash -c 'source "$1/lib/runflow.sh"; echo "${RUNFLOW_FLOW_BIN_PATHS[*]}"' _ "$SANDBOX/install"
   assert_eq "$OUT" "PATH"
 }
 
 test_standard_file_locations() {
   use_installation_copy
-  assert_eq "$(setting FLOWRUN_STATE_DIR)" "$XDG_STATE_HOME/flowrun"
-  assert_eq "$(setting FLOWRUN_LOG_DIR)" "$XDG_STATE_HOME/flowrun/logs"
-  assert_eq "$(setting FLOWRUN_DIRECTIVE_PATH)" "$XDG_CONFIG_HOME/flowrun/directives"
+  assert_eq "$(setting RUNFLOW_STATE_DIR)" "$XDG_STATE_HOME/runflow"
+  assert_eq "$(setting RUNFLOW_LOG_DIR)" "$XDG_STATE_HOME/runflow/logs"
+  assert_eq "$(setting RUNFLOW_DIRECTIVE_PATH)" "$XDG_CONFIG_HOME/runflow/directives"
 
   unset XDG_CONFIG_HOME XDG_STATE_HOME
-  assert_eq "$(setting FLOWRUN_STATE_DIR)" "$HOME/.local/state/flowrun"
-  assert_eq "$(setting FLOWRUN_DIRECTIVE_PATH)" "$HOME/.config/flowrun/directives"
+  assert_eq "$(setting RUNFLOW_STATE_DIR)" "$HOME/.local/state/runflow"
+  assert_eq "$(setting RUNFLOW_DIRECTIVE_PATH)" "$HOME/.config/runflow/directives"
 }
 
 test_installation_file_then_user_file() {
   use_installation_copy
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=site" "FLOWRUN_JOB_SETUP=site-setup" > "$SANDBOX/install/etc/flowrun.conf"
-  assert_eq "$(setting FLOWRUN_FLOW_VERSION)" site
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=site" "RUNFLOW_JOB_SETUP=site-setup" > "$SANDBOX/install/etc/runflow.conf"
+  assert_eq "$(setting RUNFLOW_FLOW_VERSION)" site
 
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  assert_eq "$(setting FLOWRUN_FLOW_VERSION)" mine
-  assert_eq "$(setting FLOWRUN_JOB_SETUP)" site-setup
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  assert_eq "$(setting RUNFLOW_FLOW_VERSION)" mine
+  assert_eq "$(setting RUNFLOW_JOB_SETUP)" site-setup
 }
 
 test_user_file_extends_site_lists() {
   # += in the user's file keeps the site's items; = replaces them
   use_installation_copy
-  printf '%s\n' "FLOWRUN_FLOW_VERSIONS=('stable=/site/flow')" "FLOWRUN_FLOW_BIN_PATHS=(/site/bin PATH)" \
-    > "$SANDBOX/install/etc/flowrun.conf"
-  printf '%s\n' "FLOWRUN_FLOW_VERSIONS+=('dev=/mine/flow')" \
-    'FLOWRUN_FLOW_BIN_PATHS=(/mine/bin "${FLOWRUN_FLOW_BIN_PATHS[@]}")' \
-    > "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  run "$FLOWRUN" -c bash -c 'source "$1/lib/flowrun.sh"; echo "versions=${FLOWRUN_FLOW_VERSIONS[*]} paths=${FLOWRUN_FLOW_BIN_PATHS[*]}"' _ "$SANDBOX/install"
+  printf '%s\n' "RUNFLOW_FLOW_VERSIONS=('stable=/site/flow')" "RUNFLOW_FLOW_BIN_PATHS=(/site/bin PATH)" \
+    > "$SANDBOX/install/etc/runflow.conf"
+  printf '%s\n' "RUNFLOW_FLOW_VERSIONS+=('dev=/mine/flow')" \
+    'RUNFLOW_FLOW_BIN_PATHS=(/mine/bin "${RUNFLOW_FLOW_BIN_PATHS[@]}")' \
+    > "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  run "$RUNFLOW" -c bash -c 'source "$1/lib/runflow.sh"; echo "versions=${RUNFLOW_FLOW_VERSIONS[*]} paths=${RUNFLOW_FLOW_BIN_PATHS[*]}"' _ "$SANDBOX/install"
   assert_contains "$OUT" "versions=stable=/site/flow dev=/mine/flow paths=/mine/bin /site/bin PATH"
 }
 
-test_flowrun_config_replaces_the_files() {
+test_runflow_config_replaces_the_files() {
   use_installation_copy
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=site" "FLOWRUN_JOB_SETUP=site-setup" > "$SANDBOX/install/etc/flowrun.conf"
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=explicit" > "$SANDBOX/explicit.conf"
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=site" "RUNFLOW_JOB_SETUP=site-setup" > "$SANDBOX/install/etc/runflow.conf"
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=explicit" > "$SANDBOX/explicit.conf"
 
-  export FLOWRUN_CONFIG="$SANDBOX/explicit.conf"
-  assert_eq "$(setting FLOWRUN_FLOW_VERSION)" explicit
-  assert_eq "$(setting FLOWRUN_JOB_SETUP)" ""          # built-in default, files not read
+  export RUNFLOW_CONFIG="$SANDBOX/explicit.conf"
+  assert_eq "$(setting RUNFLOW_FLOW_VERSION)" explicit
+  assert_eq "$(setting RUNFLOW_JOB_SETUP)" ""          # built-in default, files not read
 }
 
 test_environment_wins_over_files() {
   use_installation_copy
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=mine" "FLOWRUN_FLOW_OPTIONS=--from-file" > "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  export FLOWRUN_FLOW_VERSION=fromenv
-  assert_eq "$(setting FLOWRUN_FLOW_VERSION)" fromenv
-  assert_eq "$(setting FLOWRUN_FLOW_OPTIONS)" --from-file
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=mine" "RUNFLOW_FLOW_OPTIONS=--from-file" > "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  export RUNFLOW_FLOW_VERSION=fromenv
+  assert_eq "$(setting RUNFLOW_FLOW_VERSION)" fromenv
+  assert_eq "$(setting RUNFLOW_FLOW_OPTIONS)" --from-file
 }
 
 test_script_settings_win_over_files() {
   use_installation_copy
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/runflow/runflow.conf"
   cat > script.sh << EOF
-FLOWRUN_FLOW_VERSION=fromscript
-source "$SANDBOX/install/flowrun.bash" || exit 1
-echo "version=\$FLOWRUN_FLOW_VERSION"
+RUNFLOW_FLOW_VERSION=fromscript
+source "$SANDBOX/install/runflow.bash" || exit 1
+echo "version=\$RUNFLOW_FLOW_VERSION"
 EOF
   run bash script.sh
   assert_contains "$OUT" "version=fromscript"
@@ -99,9 +99,9 @@ EOF
 test_options_win_over_files_and_add_to_options() {
   use_installation_copy
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/bin/flowrc47"
-  printf '%s\n' "FLOWRUN_FLOW_BIN_PATHS=(\"$SANDBOX/bin\")" "FLOWRUN_FLOW_VERSION=flowtest" \
-    "FLOWRUN_FLOW_OPTIONS=--site" > "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  run "$FLOWRUN" --flow-version flowrc47 --flow-options "--workflow" -c @flow --call A.DATA
+  printf '%s\n' "RUNFLOW_FLOW_BIN_PATHS=(\"$SANDBOX/bin\")" "RUNFLOW_FLOW_VERSION=flowtest" \
+    "RUNFLOW_FLOW_OPTIONS=--site" > "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  run "$RUNFLOW" --flow-version flowrc47 --flow-options "--workflow" -c @flow --call A.DATA
   assert_rc 0
   assert_contains "$OUT" "exe=$SANDBOX/bin/flowrc47"
   assert_contains "$OUT" "ARGV [--site] [--workflow] [--call] [$PWD/A.DATA]"
@@ -109,11 +109,11 @@ test_options_win_over_files_and_add_to_options() {
 
 test_world_writable_configuration_is_refused() {
   use_installation_copy
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=evil" > "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  chmod o+w "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  run "$FLOWRUN" -c true
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=evil" > "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  chmod o+w "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  run "$RUNFLOW" -c true
   assert_rc 1
-  assert_contains "$OUT" "Configuration file is writable by everyone, not reading it: $XDG_CONFIG_HOME/flowrun/flowrun.conf"
+  assert_contains "$OUT" "Configuration file is writable by everyone, not reading it: $XDG_CONFIG_HOME/runflow/runflow.conf"
 }
 
 test_group_writable_configuration_is_refused() {
@@ -121,45 +121,45 @@ test_group_writable_configuration_is_refused() {
   # run code as everyone reading the file
   local file group
   use_installation_copy
-  file="$SANDBOX/install/etc/flowrun.conf"
+  file="$SANDBOX/install/etc/runflow.conf"
   for group in $(id -Gn); do
     [[ "$group" != "$(id -un)" ]] && break
   done
   [[ -n "$group" && "$group" != "$(id -un)" ]] || skip "no group besides a private one"
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=site" > "$file"
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=site" > "$file"
   chgrp "$group" "$file" && chmod g+w "$file" || skip "cannot change the file's group"
-  run "$FLOWRUN" -c true
+  run "$RUNFLOW" -c true
   assert_rc 1
   assert_contains "$OUT" "Configuration file is writable by group $group, not reading it: $file (chmod go-w on it)"
 
   chmod g-w "$file"
-  assert_eq "$(setting FLOWRUN_FLOW_VERSION)" site
+  assert_eq "$(setting RUNFLOW_FLOW_VERSION)" site
 }
 
 test_private_group_writable_configuration_is_read() {
   # umask 002 with a group named like the user (most Linux systems)
   use_installation_copy
   [[ "$(id -gn)" == "$(id -un)" ]] || skip "no private group"
-  printf '%s\n' "FLOWRUN_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  chmod g+w "$XDG_CONFIG_HOME/flowrun/flowrun.conf"
-  assert_eq "$(setting FLOWRUN_FLOW_VERSION)" mine
+  printf '%s\n' "RUNFLOW_FLOW_VERSION=mine" > "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  chmod g+w "$XDG_CONFIG_HOME/runflow/runflow.conf"
+  assert_eq "$(setting RUNFLOW_FLOW_VERSION)" mine
 }
 
-test_missing_flowrun_config_fails() {
-  export FLOWRUN_CONFIG="$SANDBOX/nope.conf"
-  run "$FLOWRUN" -c true
+test_missing_runflow_config_fails() {
+  export RUNFLOW_CONFIG="$SANDBOX/nope.conf"
+  run "$RUNFLOW" -c true
   assert_rc 1
-  assert_contains "$OUT" "Configuration file not found: $SANDBOX/nope.conf (FLOWRUN_CONFIG)"
+  assert_contains "$OUT" "Configuration file not found: $SANDBOX/nope.conf (RUNFLOW_CONFIG)"
 }
 
 test_defaults_file_explains_every_setting() {
-  # Each group of settings in etc/defaults/flowrun.conf follows a comment,
-  # and it sets only FLOWRUN_ settings
+  # Each group of settings in etc/defaults/runflow.conf follows a comment,
+  # and it sets only RUNFLOW_ settings
   local problems
   problems=$(awk '
-    /^FLOWRUN_[A-Z_]+=/ { if (prev !~ /^#/ && prev !~ /^FLOWRUN_/ && prev !~ /^ /) print "no comment before " $0; prev = $0; next }
-    /^[^#[:space:]]/ && !/^FLOWRUN_/ { print "not a setting: " $0 }
-    { prev = $0 }' "$ROOT/etc/defaults/flowrun.conf")
+    /^RUNFLOW_[A-Z_]+=/ { if (prev !~ /^#/ && prev !~ /^RUNFLOW_/ && prev !~ /^ /) print "no comment before " $0; prev = $0; next }
+    /^[^#[:space:]]/ && !/^RUNFLOW_/ { print "not a setting: " $0 }
+    { prev = $0 }' "$ROOT/etc/defaults/runflow.conf")
   [[ -z "$problems" ]] || fail "$problems"
 }
 
@@ -169,5 +169,5 @@ test_site_configuration_is_not_tracked() {
   # (the sandbox's HOME has no safe.directory for a checkout another user owns)
   local git=(git -c "safe.directory=$ROOT" -C "$ROOT")
   "${git[@]}" rev-parse 2> /dev/null || skip "not a Git checkout"
-  "${git[@]}" check-ignore -q etc/flowrun.conf || fail "etc/flowrun.conf is not ignored by Git"
+  "${git[@]}" check-ignore -q etc/runflow.conf || fail "etc/runflow.conf is not ignored by Git"
 }

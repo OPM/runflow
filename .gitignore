@@ -1,5 +1,5 @@
-# The site's configuration: edited by each installation, never by flowrun
-/etc/flowrun.conf
+# The site's configuration: edited by each installation, never by runflow
+/etc/runflow.conf
 
 # The examples' output and downloaded decks: ./runs/ and ./decks/ where they
 # are started (the repository or examples/)
@@ -11,3 +11,7 @@ __pycache__/
 
 # Sandboxes of failed tests kept by CI (.github/ci/run-tests.sh)
 /ci-sandboxes/
+
+# The legacy runflow script, kept locally as a reference (another site's
+# code and paths: not part of this repository)
+/runflow-legacy

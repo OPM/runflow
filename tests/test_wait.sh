@@ -2,25 +2,25 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 OPM-OP AS
 # @wait: blocking without polling (localq), timeouts, and the polling fallback
-# for backends without flowrun::backend_wait_job
+# for backends without runflow::backend_wait_job
 
 test_wait_blocks_without_polling() {
   require_localq
   # With 30 s polling, a 1 s job is still noticed as soon as it ends
-  export FLOWRUN_POLL=30
+  export RUNFLOW_POLL=30
   local start=$(date +%s)
-  run "$FLOWRUN" -c @wait @submit sleep 1
+  run "$RUNFLOW" -c @wait @submit sleep 1
   assert_rc 0
   (( $(date +%s) - start < 10 )) || fail "@wait took $(( $(date +%s) - start ))s: it polled instead of blocking"
 }
 
 test_wait_wakes_when_runner_is_killed() {
   require_localq
-  export FLOWRUN_POLL=30
+  export RUNFLOW_POLL=30
   run_script << 'EOF'
 j=$(@submit sleep 30)
 sleep 1
-pid=$(cat "$FLOWRUN_LOCALQ_DIR/${j#*:}/pid")
+pid=$(cat "$RUNFLOW_LOCALQ_DIR/${j#*:}/pid")
 ( sleep 1; kill -9 "$pid" ) &
 start=$(date +%s)
 @wait "$j"
@@ -35,33 +35,33 @@ EOF
 }
 
 test_wait_timeout() {
-  export FLOWRUN_WAIT_TIMEOUT=1
+  export RUNFLOW_WAIT_TIMEOUT=1
   run_script << 'EOF'
 j=$(@submit sleep 30)
 @wait "$j"
 echo "wait-rc=$?"
 @cancel "$j" > /dev/null
 EOF
-  assert_contains "$OUT" "gave up waiting after 1s (FLOWRUN_WAIT_TIMEOUT); the job keeps running"
+  assert_contains "$OUT" "gave up waiting after 1s (RUNFLOW_WAIT_TIMEOUT); the job keeps running"
   assert_contains "$OUT" "wait-rc=1"
 }
 
 test_wait_invalid_timeout() {
-  export FLOWRUN_WAIT_TIMEOUT=abc
-  run "$FLOWRUN" -c @wait "$TEST_SCHEDULER:1"
+  export RUNFLOW_WAIT_TIMEOUT=abc
+  run "$RUNFLOW" -c @wait "$TEST_SCHEDULER:1"
   assert_rc 1
-  assert_contains "$OUT" "FLOWRUN_WAIT_TIMEOUT must be a number of seconds"
+  assert_contains "$OUT" "RUNFLOW_WAIT_TIMEOUT must be a number of seconds"
 }
 
-# The fallback tests replace flowrun::load_queue_backend with a fake backend that has
-# no flowrun::backend_wait_job, so @wait must poll flowrun::backend_job_status
+# The fallback tests replace runflow::load_queue_backend with a fake backend that has
+# no runflow::backend_wait_job, so @wait must poll runflow::backend_job_status
 
 test_wait_polling_fallback() {
-  export FLOWRUN_POLL=0.1
+  export RUNFLOW_POLL=0.1
   run_script << 'EOF'
-flowrun::load_queue_backend() {
-  unset -f flowrun::backend_wait_job
-  flowrun::backend_job_status() {
+runflow::load_queue_backend() {
+  unset -f runflow::backend_wait_job
+  runflow::backend_job_status() {
     local n=$(( $(cat polls 2> /dev/null || echo 0) + 1 ))
     echo "$n" > polls
     if (( n < 3 )); then echo RUNNING; else echo COMPLETED; fi
@@ -74,11 +74,11 @@ EOF
 }
 
 test_wait_polling_fallback_timeout() {
-  export FLOWRUN_POLL=0.1 FLOWRUN_WAIT_TIMEOUT=1
+  export RUNFLOW_POLL=0.1 RUNFLOW_WAIT_TIMEOUT=1
   run_script << 'EOF'
-flowrun::load_queue_backend() {
-  unset -f flowrun::backend_wait_job
-  flowrun::backend_job_status() { echo RUNNING; }
+runflow::load_queue_backend() {
+  unset -f runflow::backend_wait_job
+  runflow::backend_job_status() { echo RUNNING; }
 }
 @wait localq:1
 echo "wait-rc=$?"
@@ -88,11 +88,11 @@ EOF
 }
 
 test_wait_polling_fallback_backend_errors() {
-  export FLOWRUN_POLL=0.1
+  export RUNFLOW_POLL=0.1
   run_script << 'EOF'
-flowrun::load_queue_backend() {
-  unset -f flowrun::backend_wait_job
-  flowrun::backend_job_status() { echo "scheduler unreachable" >&2; return 1; }
+runflow::load_queue_backend() {
+  unset -f runflow::backend_wait_job
+  runflow::backend_job_status() { echo "scheduler unreachable" >&2; return 1; }
 }
 @wait localq:1
 echo "wait-rc=$?"
@@ -115,7 +115,7 @@ EOF
 }
 
 test_wait_directive_returns_job_failure() {
-  run "$FLOWRUN" -c @wait @submit false
+  run "$RUNFLOW" -c @wait @submit false
   assert_rc 1
   assert_contains "$OUT" "failed"
 }
@@ -146,7 +146,7 @@ EOF
 }
 
 test_wait_directive_without_job_ids_fails() {
-  run "$FLOWRUN" -c @wait @flow A.DATA
+  run "$RUNFLOW" -c @wait @flow A.DATA
   assert_rc 1
   assert_contains "$OUT" "@wait: @flow printed no job ID"
   assert_contains "$OUT" "ARGV [$PWD/A.DATA]"   # the directive's output passes through
@@ -163,7 +163,7 @@ EOF
 }
 
 test_wait_directive_in_dry_run() {
-  run "$FLOWRUN" --dry-run -c @wait @submit true
+  run "$RUNFLOW" --dry-run -c @wait @submit true
   assert_rc 0
   assert_contains "$OUT" "[DRY-RUN] wait $TEST_SCHEDULER:dry1"
 }

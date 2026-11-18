@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 OPM-OP AS
-# flowrun - the execution environment for OPM: run a workflow script or a
-# single command with the flowrun directives. Scripts can also load them with:
-# source flowrun.bash
+# runflow - the execution environment for OPM: run a workflow script or a
+# single command with the runflow directives. Scripts can also load them with:
+# source runflow.bash
 
-# flowrun --library: the library's path, for source "$(flowrun --library)";
+# runflow --library: the library's path, for source "$(runflow --library)";
 # answered before anything is loaded
 if [[ "${1:-}" == --library ]]; then
-  echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/flowrun.sh"
+  echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/runflow.sh"
   exit 0
 fi
 
-_FLOWRUN_CLI=true  # workflow mode is turned on below, after the options
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/flowrun.sh" || exit 1
+_RUNFLOW_CLI=true  # workflow mode is turned on below, after the options
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/runflow.sh" || exit 1
 
-flowrun::cli_help() {
-  echo "flowrun $_FLOWRUN_VERSION - the execution environment for OPM (Open Porous Media)"
+runflow::cli_help() {
+  echo "runflow $_RUNFLOW_VERSION - the execution environment for OPM (Open Porous Media)"
   cat << 'HELP_EOF'
 
-Usage: flowrun [OPTIONS] script [args...]
-       flowrun [OPTIONS] -c command [args...]
-       flowrun [OPTIONS] --shell
-       flowrun [OPTIONS] --jobs[=all]
+Usage: runflow [OPTIONS] script [args...]
+       runflow [OPTIONS] -c command [args...]
+       runflow [OPTIONS] --shell
+       runflow [OPTIONS] --jobs[=all]
 
 Runs a bash script, with its arguments as $1, $2, ..., or with -c a single
 command; both use the directives below. Options are defaults for every
@@ -31,7 +31,7 @@ directive.
 Directives (scripts and commands run locally; only @submit uses the scheduler;
 @help @NAME shows a directive's options, its --NAME-options and settings):
 HELP_EOF
-  flowrun::directive_help
+  runflow::directive_help
   cat << 'HELP_EOF'
 
 OPTIONS:
@@ -55,38 +55,38 @@ OPTIONS:
   --shell                   Start an interactive bash with the directives, the
                             options applied, Tab completion and job notices
   --jobs[=all]              List pending/running jobs (all: include finished)
-  --library                 Print the library's path (source "$(flowrun --library)");
+  --library                 Print the library's path (source "$(runflow --library)");
                             must be the first argument
-  --version                 Print flowrun's version (with its Git commit, in a
+  --version                 Print runflow's version (with its Git commit, in a
                             checkout that is not exactly a release)
   -h, --help                Show this help message
 
 Options given to @submit (-n, -q, --scheduler, --depends-on,
---<scheduler>-options, -o OUTPUT) override or add to flowrun's.
+--<scheduler>-options, -o OUTPUT) override or add to runflow's.
 Option strings use shell quoting: -o "--a='x y' --b=2".
 
 EXAMPLES:
-  flowrun -n 4 -c @mpi @flow CASE.DATA         # Flow here, on 4 MPI ranks
-  flowrun -c @wait @submit @flow CASE.DATA     # as a job of the local queue
-  flowrun --flow-version 2025.04 workflow.sh   # a workflow, with that Flow
-  flowrun --dry-run -s slurm workflow.sh       # the jobs it would submit
-  flowrun --jobs                               # the local queue's jobs
-  flowrun -c @flow -l                          # the Flow versions found
-  flowrun --shell                              # an interactive shell
+  runflow -n 4 -c @mpi @flow CASE.DATA         # Flow here, on 4 MPI ranks
+  runflow -c @wait @submit @flow CASE.DATA     # as a job of the local queue
+  runflow --flow-version 2025.04 workflow.sh   # a workflow, with that Flow
+  runflow --dry-run -s slurm workflow.sh       # the jobs it would submit
+  runflow --jobs                               # the local queue's jobs
+  runflow -c @flow -l                          # the Flow versions found
+  runflow --shell                              # an interactive shell
 
-Scripts can also load the directives themselves, to run without flowrun:
-  source flowrun.bash; flowrun::setup [OPTIONS]
+Scripts can also load the directives themselves, to run without runflow:
+  source runflow.bash; runflow::setup [OPTIONS]
 
 HELP_EOF
-  echo "Full reference: $(flowrun::man_command)"
+  echo "Full reference: $(runflow::man_command)"
   echo
 }
 
 # Parse the command line and set up the run: handles --help/--jobs and errors,
-# applies the workflow options (flowrun::setup_option), and leaves the mode
-# (command or script) in _FLOWRUN_MODE and the command or script with its
-# arguments in _FLOWRUN_ARGS
-flowrun::cli_main() {
+# applies the workflow options (runflow::setup_option), and leaves the mode
+# (command or script) in _RUNFLOW_MODE and the command or script with its
+# arguments in _RUNFLOW_ARGS
+runflow::cli_main() {
   local command_mode=false jobs="" shell=false
 
   while [[ $# -gt 0 ]]; do
@@ -109,11 +109,11 @@ flowrun::cli_main() {
         shift
         ;;
       -h|--help)
-        flowrun::cli_help
+        runflow::cli_help
         exit 0
         ;;
       --version)
-        echo "flowrun $(flowrun::version)"
+        echo "runflow $(runflow::version)"
         exit 0
         ;;
       --)
@@ -121,11 +121,11 @@ flowrun::cli_main() {
         break
         ;;
       *)
-        flowrun::setup_option "$@" || exit 1
-        if [[ "$_FLOWRUN_SHIFT" -gt 0 ]]; then
-          shift "$_FLOWRUN_SHIFT"
+        runflow::setup_option "$@" || exit 1
+        if [[ "$_RUNFLOW_SHIFT" -gt 0 ]]; then
+          shift "$_RUNFLOW_SHIFT"
         elif [[ "$1" == -* ]]; then
-          flowrun::error "Unknown option: $1 (flowrun -h for help)"
+          runflow::error "Unknown option: $1 (runflow -h for help)"
           exit 1
         else
           break
@@ -138,56 +138,56 @@ flowrun::cli_main() {
   # and reach it as exported settings
   if $shell; then
     if [[ $# -gt 0 || "$command_mode" == true || -n "$jobs" ]]; then
-      flowrun::error "--shell starts an interactive shell: no script, -c or --jobs"
+      runflow::error "--shell starts an interactive shell: no script, -c or --jobs"
       exit 1
     fi
-    exec "$BASH" --rcfile "$FLOWRUN_HOME/lib/shell_rc.sh" -i
+    exec "$BASH" --rcfile "$RUNFLOW_HOME/lib/shell_rc.sh" -i
   fi
 
   if [[ -n "$jobs" ]]; then
     local scheduler
-    scheduler=$(flowrun::get_scheduler) || exit 1
-    flowrun::load_queue_backend "$scheduler" || exit 1
-    flowrun::backend_list_jobs "$jobs"
+    scheduler=$(runflow::get_scheduler) || exit 1
+    runflow::load_queue_backend "$scheduler" || exit 1
+    runflow::backend_list_jobs "$jobs"
     exit
   fi
 
   if [[ $# -eq 0 ]]; then
     if [[ "$command_mode" == true ]]; then
-      flowrun::error "Command required after -c"
+      runflow::error "Command required after -c"
     else
-      flowrun::error "Script or -c command required"
+      runflow::error "Script or -c command required"
     fi
-    flowrun::cli_help
+    runflow::cli_help
     exit 1
   fi
 
   if [[ "$command_mode" == true ]]; then
-    _FLOWRUN_MODE=command
+    _RUNFLOW_MODE=command
   elif [[ -f "$1" ]]; then
-    _FLOWRUN_MODE=script
+    _RUNFLOW_MODE=script
   else
-    flowrun::error "Script not found: $1"
+    runflow::error "Script not found: $1"
     exit 1
   fi
-  _FLOWRUN_ARGS=("$@")
+  _RUNFLOW_ARGS=("$@")
 }
 
-flowrun::cli_main "$@"
-set -- "${_FLOWRUN_ARGS[@]}"
-unset _FLOWRUN_ARGS
+runflow::cli_main "$@"
+set -- "${_RUNFLOW_ARGS[@]}"
+unset _RUNFLOW_ARGS
 
-flowrun::workflow_mode
+runflow::workflow_mode
 
 # Run the command or script here, at the top level rather than inside a
 # function, so that the workflow's variables are ordinary globals
-if [[ "$_FLOWRUN_MODE" == command ]]; then
+if [[ "$_RUNFLOW_MODE" == command ]]; then
   "$@"
 else
   # Shift the script off first: without arguments, source keeps the current
   # positional parameters, and the script would see itself as $1
-  _FLOWRUN_SCRIPT=$1
+  _RUNFLOW_SCRIPT=$1
   shift
-  source "$_FLOWRUN_SCRIPT" "$@"
+  source "$_RUNFLOW_SCRIPT" "$@"
 fi
 exit

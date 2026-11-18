@@ -1,4 +1,4 @@
-# flowrun's tests on the systems it is used on:
+# runflow's tests on the systems it is used on:
 #   workstations  where users try it locally: Ubuntu, macOS (both CPUs)
 #   clusters      administered systems where Flow runs: RHEL (Rocky Linux),
 #                 Debian, Ubuntu LTS, SLES (openSUSE Leap), in containers
@@ -52,7 +52,7 @@ jobs:
         with:
           name: sandboxes-${{ matrix.os }}
           path: ci-sandboxes/
-          include-hidden-files: true   # e.g. ~/.local/state/flowrun, its session files and job logs
+          include-hidden-files: true   # e.g. ~/.local/state/runflow, its session files and job logs
           if-no-files-found: ignore
 
   # Containers started with docker run, not the job's container option:

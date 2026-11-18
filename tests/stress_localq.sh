@@ -3,7 +3,7 @@
 # Copyright (C) 2026 OPM-OP AS
 # localq stress test: many short jobs with random slot needs.
 # Checks that every job runs exactly once and completes, that the slots in
-# use never exceed FLOWRUN_LOCALQ_SLOTS, and reports throughput.
+# use never exceed RUNFLOW_LOCALQ_SLOTS, and reports throughput.
 #
 # Usage: tests/stress_localq.sh [NJOBS] [SLOTS]   (default: 100 jobs, 8 slots)
 
@@ -16,9 +16,9 @@ njobs="${1:-100}"
 slots="${2:-8}"
 
 TEST_SCHEDULER=localq
-sandbox=$(mktemp -d "${TMPDIR:-/tmp}/flowrun-stress.XXXXXX")
+sandbox=$(mktemp -d "${TMPDIR:-/tmp}/runflow-stress.XXXXXX")
 setup_sandbox "$sandbox"
-export FLOWRUN_LOCALQ_SLOTS="$slots"
+export RUNFLOW_LOCALQ_SLOTS="$slots"
 
 echo "localq stress test: $njobs jobs, $slots slots (sandbox: $sandbox)"
 
@@ -36,7 +36,7 @@ done
 EOF
 
 start=$(now)
-"$FLOWRUN" workflow.sh "$njobs"
+"$RUNFLOW" workflow.sh "$njobs"
 rc=$?
 end=$(now)
 
@@ -52,7 +52,7 @@ check() {
 
 check "workflow exit code" "$([[ $rc -eq 0 ]] && echo ok || echo "rc=$rc")"
 
-completed=$("$FLOWRUN" -s localq --jobs=all | grep -c ' COMPLETED ')
+completed=$("$RUNFLOW" -s localq --jobs=all | grep -c ' COMPLETED ')
 check "all jobs COMPLETED" "$([[ $completed -eq $njobs ]] && echo ok || echo "$completed of $njobs")"
 
 starts=$(grep -c '^S ' events.log)
@@ -70,7 +70,7 @@ awk -v n="$njobs" -v s="$start" -v e="$end" \
   'BEGIN { printf "  info  %d jobs in %.1fs (%.1f jobs/s)\n", n, e - s, n / (e - s) }'
 
 if [[ $errors -eq 0 ]]; then
-  [[ "$sandbox" == "${TMPDIR:-/tmp}"/flowrun-stress.* ]] && rm -rf -- "$sandbox"
+  [[ "$sandbox" == "${TMPDIR:-/tmp}"/runflow-stress.* ]] && rm -rf -- "$sandbox"
   echo "PASS"
 else
   echo "FAIL ($errors checks; sandbox kept: $sandbox)"

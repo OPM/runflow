@@ -1,29 +1,29 @@
-# Developing flowrun
+# Developing runflow
 
 How the code is organised, how to test it, and the conventions it follows.
-For using flowrun see `man flowrun` ([man/man1/flowrun.1](../man/man1/flowrun.1)).
+For using runflow see `man runflow` ([man/man1/runflow.1](../man/man1/runflow.1)).
 
 ## LAYOUT
 
 ```
-flowrun                      CLI: parses options, then runs a script or command
-VERSION                      flowrun's version, the one place it is written (see RELEASES)
+runflow                      CLI: parses options, then runs a script or command
+VERSION                      runflow's version, the one place it is written (see RELEASES)
 CHANGELOG.md                 what changed in each version
-LICENSE                      the GNU GPL, version 3 (flowrun: version 3 or later, see README.md)
-flowrun.bash                 for "source flowrun.bash" (found through PATH): loads lib/flowrun.sh
-lib/flowrun.sh               core: module loading, flowrun::setup, workflow mode, helpers
+LICENSE                      the GNU GPL, version 3 (runflow: version 3 or later, see README.md)
+runflow.bash                 for "source runflow.bash" (found through PATH): loads lib/runflow.sh
+lib/runflow.sh               core: module loading, runflow::setup, workflow mode, helpers
 lib/common.sh                bash version check, configuration loading, messages
 lib/config.sh                scheduler detection, backend loading
 lib/directives/*.sh          core directives: @submit, @wait, @cancel, @mpi, @help
-lib/extensions/flow.sh       bundled extension: @flow and its flowrun::flow:: helpers
-lib/extensions/flowpy.sh     bundled extension: @flowpy (uses the flowrun::flow:: helpers)
+lib/extensions/flow.sh       bundled extension: @flow and its runflow::flow:: helpers
+lib/extensions/flowpy.sh     bundled extension: @flowpy (uses the runflow::flow:: helpers)
 lib/interactive.sh           interactive shells: prompt marker, notifications, completion
-lib/shell_rc.sh              rc file of flowrun --shell
+lib/shell_rc.sh              rc file of runflow --shell
 lib/queue/<scheduler>.sh     scheduler backends (localq; lsf is a stub)
 lib/queue/localq_runner.sh   per-job runner of localq
-etc/defaults/flowrun.conf    every setting: its default and explanation (read first)
-etc/flowrun.conf             the site's configuration (ignored by Git; not shipped)
-man/man1/flowrun.1           user reference (roff); check with: groff -man -ww -z
+etc/defaults/runflow.conf    every setting: its default and explanation (read first)
+etc/runflow.conf             the site's configuration (ignored by Git; not shipped)
+man/man1/runflow.1           user reference (roff); check with: groff -man -ww -z
 examples/                    example workflows (README.md) and their post-processing (python/)
 tests/                       test suite, localq stress test
 ```
@@ -39,26 +39,26 @@ The design has three layers, each owned by one kind of module:
 | program | `@flow` and extensions | build the program's command line |
 
 A layer communicates with the next only through the job's command and the
-`FLOWRUN_*` variables. That is why a backend runs the job's command exactly
-once, and why `@mpi` reads `FLOWRUN_NP` and `FLOWRUN_JOB_SCHEDULER`.
+`RUNFLOW_*` variables. That is why a backend runs the job's command exactly
+once, and why `@mpi` reads `RUNFLOW_NP` and `RUNFLOW_JOB_SCHEDULER`.
 
 **Startup:**
 1. The core loads the configuration: defaults, configuration files, then
    what was already set.
 2. It loads the modules in this order: `lib/directives`, `lib/extensions`,
-   then `FLOWRUN_DIRECTIVE_PATH`.
+   then `RUNFLOW_DIRECTIVE_PATH`.
 3. It removes the job lists of this host's sessions whose process is gone.
 4. It turns on workflow mode, except under the CLI (which turns it on after
    parsing its options). Interactive shells get `lib/interactive.sh` instead:
-   no traps, nothing may exit the shell, and `_FLOWRUN_INTERACTIVE` is set
+   no traps, nothing may exit the shell, and `_RUNFLOW_INTERACTIVE` is set
    (e.g. `@cancel` then needs job IDs).
 
 Loading the library a second time does nothing.
 
 **Jobs:** `@submit` wraps the command in
-`bash -c '...' flowrun-job DIR SETUP` and adds the job's settings as
-`FLOWRUN_*=value` words (see docs/BACKENDS.md). Directives inside a job run
-through `flowrun -n NP -c ...`, which loads everything again on the compute
+`bash -c '...' runflow-job DIR SETUP` and adds the job's settings as
+`RUNFLOW_*=value` words (see docs/BACKENDS.md). Directives inside a job run
+through `runflow -n NP -c ...`, which loads everything again on the compute
 node.
 
 ## TESTS
@@ -93,7 +93,7 @@ Each test runs in a separate bash process with its own sandbox:
 `test_*`. The runner finds them by name, cancels jobs left in the sandbox,
 and removes the sandbox afterwards.
 
-**Requirements:** what flowrun needs, plus perl (which starts each test with
+**Requirements:** what runflow needs, plus perl (which starts each test with
 the default signal handling, in its own session, and times it) and GNU
 `timeout`; `mpirun` and `python3` for the tests that use them (they are
 skipped otherwise). On macOS: `brew install bash flock coreutils`; the tests
@@ -124,7 +124,7 @@ Rocky Linux 8 has bash 4.4, the oldest supported.
 
 **Rules for tests:**
 - Never touch the real `HOME`, `/var/tmp` or the user's queue. Use the sandbox
-  and `FLOWRUN_LOCALQ_DIR`.
+  and `RUNFLOW_LOCALQ_DIR`.
 - Check outputs through the fake Flow's `ARGV` line or through job logs, not
   through timing. Where timing matters, use generous bounds.
 
@@ -135,17 +135,17 @@ Rocky Linux 8 has bash 4.4, the oldest supported.
   | Kind of name | Form |
   |---|---|
   | directives | `@name` |
-  | core functions | `flowrun::name` |
-  | backend functions and globals | `flowrun::<scheduler>::name`, `FLOWRUN_<SCHEDULER>_NAME` |
-  | bundled extension helpers | `flowrun::<extension>::name`, e.g. `flowrun::flow::find` |
+  | core functions | `runflow::name` |
+  | backend functions and globals | `runflow::<scheduler>::name`, `RUNFLOW_<SCHEDULER>_NAME` |
+  | bundled extension helpers | `runflow::<extension>::name`, e.g. `runflow::flow::find` |
   | user and site extension helpers | `<extension>::name` (see docs/DIRECTIVES.md) |
-  | settings and globals | `FLOWRUN_NAME` |
-  | internal variables | `_FLOWRUN_NAME` |
+  | settings and globals | `RUNFLOW_NAME` |
+  | internal variables | `_RUNFLOW_NAME` |
 
 - **Portability:** the code runs on bash 4.4 or newer, on Linux and on macOS
   (with Homebrew). No GNU-only options outside the tests. Linux-only paths
   (`/proc`, `setsid`) need a fallback, defined on every platform so the tests
-  run it on Linux too (e.g. `flowrun::localq::pstart_into_ps`).
+  run it on Linux too (e.g. `runflow::localq::pstart_into_ps`).
 - **Functions that set the caller's variable** (`printf -v "$1"`, the
   `..._into VAR` helpers) prefix their locals with their own name, e.g.
   `_pstart_start`: `printf -v` writes the innermost variable of that name, so
@@ -161,12 +161,12 @@ Rocky Linux 8 has bash 4.4, the oldest supported.
 - **Library side effects:** the library must not change the shell's options
   (no `set -o pipefail`) or traps outside workflow mode.
 - **Output:** stdout carries data (job IDs, listings). Messages go to stderr
-  through `flowrun::error`, `flowrun::warning`, `flowrun::info` and
-  `flowrun::debug`.
-- **Option strings** are split with `flowrun::split_options`, never with
+  through `runflow::error`, `runflow::warning`, `runflow::info` and
+  `runflow::debug`.
+- **Option strings** are split with `runflow::split_options`, never with
   `eval` or word splitting.
 - **Configuration:** a new setting gets its default, after a comment that
-  explains it, in `etc/defaults/flowrun.conf` (a test checks the comment).
+  explains it, in `etc/defaults/runflow.conf` (a test checks the comment).
   A list setting where a name or pattern selects an item uses the last
   matching item, so that `+=` in a later file redefines it.
   `lib/common.sh` loads defaults, then the configuration files, then restores
@@ -184,7 +184,7 @@ Rocky Linux 8 has bash 4.4, the oldest supported.
 
 ## RELEASES
 
-The version is in the `VERSION` file, the one place it is written; flowrun
+The version is in the `VERSION` file, the one place it is written; runflow
 reads it for `--version`, `-h` and its debug output. Versions follow semantic
 versioning (`CHANGELOG.md` says what each part means for users). Every change
 users notice gets a line under **Unreleased** in `CHANGELOG.md`, as it is made.
@@ -194,11 +194,11 @@ To release, e.g. 0.2.0:
 1. In `CHANGELOG.md`, rename **Unreleased** to `[0.2.0] - YYYY-MM-DD`, and
    start a new, empty **Unreleased** above it.
 2. Write `0.2.0` into `VERSION`.
-3. Commit, and tag the commit `v0.2.0` (`git tag -a v0.2.0 -m "flowrun 0.2.0"`):
+3. Commit, and tag the commit `v0.2.0` (`git tag -a v0.2.0 -m "runflow 0.2.0"`):
    checkouts then report how far they are from the release.
 
 A test checks that `VERSION` is `MAJOR.MINOR.PATCH`, that `CHANGELOG.md` has
-its section, and that `flowrun --version` prints it.
+its section, and that `runflow --version` prints it.
 
 ## EXTENDING
 

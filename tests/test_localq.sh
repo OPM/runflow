@@ -19,14 +19,14 @@ EOF
 
 test_localq_np_above_slots_rejected() {
   require_localq
-  run "$FLOWRUN" -c @submit -n 99 true
+  run "$RUNFLOW" -c @submit -n 99 true
   assert_rc 1
   assert_contains "$OUT" "number of processes must be 1..4"
 }
 
 test_localq_unknown_dependency_rejected() {
   require_localq
-  run "$FLOWRUN" -c @submit --depends-on 12345 true
+  run "$RUNFLOW" -c @submit --depends-on 12345 true
   assert_rc 1
   assert_contains "$OUT" "unknown dependency job: 12345"
 }
@@ -35,8 +35,8 @@ test_localq_killed_runner_reported_failed() {
   require_localq
   run_script << 'EOF'
 j=$(@submit sleep 30)
-until grep -qx RUNNING "$FLOWRUN_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
-pid=$(cat "$FLOWRUN_LOCALQ_DIR/${j#*:}/pid")
+until grep -qx RUNNING "$RUNFLOW_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
+pid=$(cat "$RUNFLOW_LOCALQ_DIR/${j#*:}/pid")
 kill -9 "$pid"
 @wait "$j"
 echo "wait-rc=$?"
@@ -50,8 +50,8 @@ test_localq_cancel_kills_process_group() {
   require_localq
   run_script << 'EOF'
 j=$(@submit sh -c 'sleep 30 & sleep 31; wait')
-until grep -qx RUNNING "$FLOWRUN_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
-pid=$(cat "$FLOWRUN_LOCALQ_DIR/${j#*:}/pid")
+until grep -qx RUNNING "$RUNFLOW_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
+pid=$(cat "$RUNFLOW_LOCALQ_DIR/${j#*:}/pid")
 @cancel "$j"
 sleep 0.5
 echo "left=$(ps -A -o pgid= | awk -v g="$pid" '$1 == g { n++ } END { print n + 0 }')"
@@ -64,25 +64,25 @@ test_localq_jobs_listing() {
   run_script << 'EOF'
 @wait @submit true > /dev/null
 j=$(@submit -n 2 sleep 30)
-until grep -qx RUNNING "$FLOWRUN_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
+until grep -qx RUNNING "$RUNFLOW_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
 EOF
-  run "$FLOWRUN" --jobs
+  run "$RUNFLOW" --jobs
   assert_rc 0
   assert_contains "$OUT" "localq: slots 2/4 in use"
   assert_contains "$OUT" "RUNNING"
   assert_contains "$OUT" "sleep 30"
   assert_not_contains "$OUT" "COMPLETED"
 
-  run "$FLOWRUN" --jobs=all
+  run "$RUNFLOW" --jobs=all
   assert_contains "$OUT" "COMPLETED"
 }
 
 test_localq_listing_hides_wrappers() {
   require_localq
-  run "$FLOWRUN" -c @wait @submit @mpi @flow A.DATA
-  run "$FLOWRUN" --jobs=all
+  run "$RUNFLOW" -c @wait @submit @mpi @flow A.DATA
+  run "$RUNFLOW" --jobs=all
   assert_contains "$OUT" "@flow A.DATA"
-  assert_not_contains "$OUT" "flowrun-cd"
+  assert_not_contains "$OUT" "runflow-cd"
 }
 
 test_localq_writes_per_job_logs() {
@@ -91,8 +91,8 @@ test_localq_writes_per_job_logs() {
 @wait @submit sh -c 'echo first' > /dev/null
 @wait @submit sh -c 'echo second' > /dev/null
 EOF
-  assert_file_contains "$HOME/.local/state/flowrun/logs/localq.${HOSTNAME%%.*}.1.log" "first"
-  assert_file_contains "$HOME/.local/state/flowrun/logs/localq.${HOSTNAME%%.*}.2.log" "second"
+  assert_file_contains "$HOME/.local/state/runflow/logs/localq.${HOSTNAME%%.*}.1.log" "first"
+  assert_file_contains "$HOME/.local/state/runflow/logs/localq.${HOSTNAME%%.*}.2.log" "second"
 }
 
 test_localq_routing_with_other_default_scheduler() {
@@ -114,7 +114,7 @@ test_localq_missing_tools_fail_gracefully() {
     ln -s "$(command -v "$cmd")" "$SANDBOX/minpath/$cmd"
   done
   run bash -c '
-    source "$1/lib/flowrun.sh"
+    source "$1/lib/runflow.sh"
     PATH="$2"
     @submit true
     echo "submit-rc=$?"
@@ -141,8 +141,8 @@ test_localq_works_without_setsid() {
   export PATH="$SANDBOX/nosetsid"
   run_script << 'EOF'
 j=$(@submit sleep 30)
-until grep -qx RUNNING "$FLOWRUN_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
-pid=$(cat "$FLOWRUN_LOCALQ_DIR/${j#*:}/pid")
+until grep -qx RUNNING "$RUNFLOW_LOCALQ_DIR/${j#*:}/status" 2> /dev/null; do sleep 0.1; done
+pid=$(cat "$RUNFLOW_LOCALQ_DIR/${j#*:}/pid")
 echo "own-group=$([[ $(ps -o pgid= -p "$pid" | tr -d ' ') == "$pid" ]] && echo yes || echo no)"
 @cancel "$j"
 @wait @submit true
@@ -157,15 +157,15 @@ EOF
 
 test_localq_empty_listing_mentions_finished_jobs() {
   require_localq
-  run "$FLOWRUN" --jobs
+  run "$RUNFLOW" --jobs
   assert_contains "$OUT" "(no jobs)"
   
-  run "$FLOWRUN" -c @wait @submit true
-  run "$FLOWRUN" -c @wait @submit false
-  run "$FLOWRUN" --jobs
+  run "$RUNFLOW" -c @wait @submit true
+  run "$RUNFLOW" -c @wait @submit false
+  run "$RUNFLOW" --jobs
   assert_contains "$OUT" "(no active jobs; 2 finished, see --jobs=all)"
   
-  run "$FLOWRUN" --jobs=all
+  run "$RUNFLOW" --jobs=all
   assert_contains "$OUT" "COMPLETED"
   assert_contains "$OUT" "FAILED"
 }
@@ -173,16 +173,16 @@ test_localq_empty_listing_mentions_finished_jobs() {
 test_localq_state_is_local_and_fixed_per_user() {
   # Default: a fixed path on local disk, the same in every session
   local dir
-  dir=$(env -u FLOWRUN_LOCALQ_DIR -u XDG_RUNTIME_DIR TMPDIR=/somewhere bash -c '
-    source "$1/lib/common.sh"; source "$1/lib/queue/localq.sh"; echo "$FLOWRUN_LOCALQ_DIR"' _ "$ROOT")
-  assert_eq "$dir" "/var/tmp/flowrun-$UID/localq"
+  dir=$(env -u RUNFLOW_LOCALQ_DIR -u XDG_RUNTIME_DIR TMPDIR=/somewhere bash -c '
+    source "$1/lib/common.sh"; source "$1/lib/queue/localq.sh"; echo "$RUNFLOW_LOCALQ_DIR"' _ "$ROOT")
+  assert_eq "$dir" "/var/tmp/runflow-$UID/localq"
 }
 
 test_localq_state_dir_is_private() {
   require_localq
-  run "$FLOWRUN" -c @wait @submit true
+  run "$RUNFLOW" -c @wait @submit true
   assert_rc 0
-  assert_eq "$(ls -ld "$FLOWRUN_LOCALQ_DIR" | cut -c 1-10)" drwx------
+  assert_eq "$(ls -ld "$RUNFLOW_LOCALQ_DIR" | cut -c 1-10)" drwx------
 }
 
 test_localq_refuses_state_dir_it_does_not_own() {
@@ -190,8 +190,8 @@ test_localq_refuses_state_dir_it_does_not_own() {
   require_localq
   mkdir "$SANDBOX/elsewhere"
   ln -s "$SANDBOX/elsewhere" "$SANDBOX/planted"
-  export FLOWRUN_LOCALQ_DIR="$SANDBOX/planted"
-  run "$FLOWRUN" -c @submit true
+  export RUNFLOW_LOCALQ_DIR="$SANDBOX/planted"
+  run "$RUNFLOW" -c @submit true
   assert_rc 1
   assert_contains "$OUT" "localq: $SANDBOX/planted is not a directory owned by you"
 }
@@ -199,12 +199,12 @@ test_localq_refuses_state_dir_it_does_not_own() {
 test_localq_log_and_session_names_include_host() {
   require_localq
   run_script << 'EOF'
-echo "session=$FLOWRUN_SESSION_FILE"
+echo "session=$RUNFLOW_SESSION_FILE"
 @wait @submit sh -c 'echo logged' > /dev/null
 EOF
   assert_rc 0
   assert_contains "$OUT" "/session.${HOSTNAME%%.*}."
-  assert_file_contains "$HOME/.local/state/flowrun/logs/localq.${HOSTNAME%%.*}.1.log" "logged"
+  assert_file_contains "$HOME/.local/state/runflow/logs/localq.${HOSTNAME%%.*}.1.log" "logged"
 }
 
 # --- Native options (--localq-options) ---
@@ -213,7 +213,7 @@ test_localq_time_limit_stops_the_job() {
   require_localq
   run_script << 'EOF2'
 j=$(@submit --localq-options "--time=0:01" sh -c 'sleep 30 & sleep 31; wait')
-pid=$(cat "$FLOWRUN_LOCALQ_DIR/${j#*:}/pid")
+pid=$(cat "$RUNFLOW_LOCALQ_DIR/${j#*:}/pid")
 @wait "$j"
 echo "wait-rc=$?"
 sleep 0.5
@@ -221,13 +221,13 @@ echo "left=$(ps -A -o pgid= | awk -v g="$pid" '$1 == g { n++ } END { print n + 0
 EOF2
   assert_contains "$OUT" "wait-rc=1"
   assert_contains "$OUT" "left=0"
-  assert_file_contains "$HOME/.local/state/flowrun/logs/localq.${HOSTNAME%%.*}.1.log" \
+  assert_file_contains "$HOME/.local/state/runflow/logs/localq.${HOSTNAME%%.*}.1.log" \
     "localq: job 1 reached its time limit (0:00:01) and was stopped"
 }
 
 test_localq_time_limit_not_reached() {
   require_localq
-  run "$FLOWRUN" -c @wait @submit --localq-options "--time 5" true
+  run "$RUNFLOW" -c @wait @submit --localq-options "--time 5" true
   assert_rc 0
   assert_contains "$OUT" "completed successfully"
 }
@@ -243,13 +243,13 @@ test_localq_start_time_variants_store_the_value() {
   # local of the same name inside a variant once swallowed the value
   for variant in ps proc; do
     [[ $variant == proc && ! -d /proc/self ]] && continue
-    eval "flowrun::localq::pstart_into() { flowrun::localq::pstart_into_$variant \"\$@\"; }"
-    start=$(flowrun::localq::pstart "$pid")
+    eval "runflow::localq::pstart_into() { runflow::localq::pstart_into_$variant \"\$@\"; }"
+    start=$(runflow::localq::pstart "$pid")
     [[ -n "$start" ]] || fail "$variant: no start time for a live process"
-    [[ "$(flowrun::localq::pstart "$pid")" == "$start" ]] || fail "$variant: start time not stable"
+    [[ "$(runflow::localq::pstart "$pid")" == "$start" ]] || fail "$variant: start time not stable"
   done
   kill "$pid"; wait "$pid" 2> /dev/null
-  [[ -z "$(flowrun::localq::pstart "$pid")" ]] || fail "start time for an ended process"
+  [[ -z "$(runflow::localq::pstart "$pid")" ]] || fail "start time for an ended process"
   return 0
 }
 
@@ -260,7 +260,7 @@ test_localq_reaped_job_never_starts() {
   run_script << 'EOF'
 a=$(@submit sleep 1)
 b=$(@submit --depends-on "$a" touch B.ran)
-d="$FLOWRUN_LOCALQ_DIR/${b#*:}"
+d="$RUNFLOW_LOCALQ_DIR/${b#*:}"
 runner=$(cat "$d/pid")
 echo wrong > "$d/pstart"
 @wait "$b"
@@ -281,10 +281,10 @@ test_localq_time_formats() {
   for pair in 5:300 05:30:330 1:02:03:3723 2-0:172800 1-2:3:93780 1-0:0:9:86409; do
     value=${pair%:*}
     expected=${pair##*:}
-    assert_eq "$(flowrun::localq::time_seconds "$value")" "$expected"
+    assert_eq "$(runflow::localq::time_seconds "$value")" "$expected"
   done
-  flowrun::localq::time_seconds 1h > /dev/null && fail "1h accepted"
-  flowrun::localq::time_seconds 1:2:3:4 > /dev/null && fail "1:2:3:4 accepted"
+  runflow::localq::time_seconds 1h > /dev/null && fail "1h accepted"
+  runflow::localq::time_seconds 1:2:3:4 > /dev/null && fail "1:2:3:4 accepted"
   return 0
 }
 
@@ -294,20 +294,20 @@ test_localq_nice() {
   # macOS runners run at -10); the result is at most 19
   local base
   base=$(ps -o nice= -p $$ | tr -d ' ')
-  run "$FLOWRUN" --localq-options "--nice=7" -c @wait @submit -o "$PWD/nice.log" sh -c 'ps -o nice= -p $$'
+  run "$RUNFLOW" --localq-options "--nice=7" -c @wait @submit -o "$PWD/nice.log" sh -c 'ps -o nice= -p $$'
   assert_rc 0
   assert_eq "$(tr -d ' ' < nice.log)" "$(( base + 7 > 19 ? 19 : base + 7 ))"
 
   # From the configuration; --nice alone: 10
-  printf '%s\n' "FLOWRUN_LOCALQ_OPTIONS=--nice" >> "$FLOWRUN_CONFIG"
-  run "$FLOWRUN" -c @wait @submit -o "$PWD/nice.log" sh -c 'ps -o nice= -p $$'
+  printf '%s\n' "RUNFLOW_LOCALQ_OPTIONS=--nice" >> "$RUNFLOW_CONFIG"
+  run "$RUNFLOW" -c @wait @submit -o "$PWD/nice.log" sh -c 'ps -o nice= -p $$'
   assert_eq "$(tr -d ' ' < nice.log)" "$(( base + 10 > 19 ? 19 : base + 10 ))"
 }
 
 test_localq_job_name_listed() {
   require_localq
-  run "$FLOWRUN" -c @wait @submit --localq-options "--job-name=base-case" true
-  run "$FLOWRUN" --jobs=all
+  run "$RUNFLOW" -c @wait @submit --localq-options "--job-name=base-case" true
+  run "$RUNFLOW" --jobs=all
   assert_contains "$OUT" "NAME"
   assert_contains "$OUT" "base-case"
 }
@@ -327,19 +327,19 @@ EOF2
 
 test_localq_rejects_unsupported_options() {
   require_localq
-  run "$FLOWRUN" -c @submit --localq-options "--mem=4G" true
+  run "$RUNFLOW" -c @submit --localq-options "--mem=4G" true
   assert_rc 1
   assert_contains "$OUT" "localq: unknown option --mem=4G (supported: --time, --nice, --job-name, --exclusive)"
 
-  run "$FLOWRUN" -c @submit --localq-options "--time=soon" true
+  run "$RUNFLOW" -c @submit --localq-options "--time=soon" true
   assert_rc 1
   assert_contains "$OUT" "localq: invalid --time: soon"
 
-  run "$FLOWRUN" -c @submit --localq-options "--nice=-5" true
+  run "$RUNFLOW" -c @submit --localq-options "--nice=-5" true
   assert_rc 1
   assert_contains "$OUT" "localq: --nice must be 0..19 (got: -5)"
 
   # Only the scheduler the job goes to checks its options
-  run "$FLOWRUN" -c @wait @submit --slurm-options "--mem=4G" true
+  run "$RUNFLOW" -c @wait @submit --slurm-options "--mem=4G" true
   assert_rc 0
 }

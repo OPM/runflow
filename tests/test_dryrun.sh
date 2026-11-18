@@ -32,7 +32,7 @@ EOF
 }
 
 test_dry_run_shows_flow_command() {
-  run "$FLOWRUN" --dry-run -c @flow --x=1 A.DATA
+  run "$RUNFLOW" --dry-run -c @flow --x=1 A.DATA
   assert_rc 0
   assert_contains "$OUT" "[DRY-RUN] run: env PYTHONPATH="
   assert_contains "$OUT" "$SANDBOX/bin/flowtest --x=1 $PWD/A.DATA"
@@ -51,20 +51,20 @@ EOF
 }
 
 test_dry_run_works_without_backend() {
-  run "$FLOWRUN" --dry-run -s slurm -c @wait @submit -n 8 true
+  run "$RUNFLOW" --dry-run -s slurm -c @wait @submit -n 8 true
   assert_rc 0
   assert_contains "$OUT" "[DRY-RUN] submit slurm:dry1: queue=default np=8"
 }
 
 test_dry_run_still_rejects_cross_scheduler_dependency() {
-  run "$FLOWRUN" --dry-run -s slurm -c @submit --depends-on localq:1 true
+  run "$RUNFLOW" --dry-run -s slurm -c @submit --depends-on localq:1 true
   assert_rc 1
   assert_contains "$OUT" "cannot be a dependency"
 }
 
 test_dry_run_flag_visible_to_scripts() {
   run_script --dry-run << 'EOF'
-echo "dry=$FLOWRUN_DRY_RUN"
+echo "dry=$RUNFLOW_DRY_RUN"
 EOF
   assert_contains "$OUT" "dry=true"
 }
