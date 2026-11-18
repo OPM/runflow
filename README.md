@@ -1,6 +1,6 @@
 # runflow
 
-[![tests](https://github.com/SoilRos/runflow/actions/workflows/tests.yml/badge.svg)](https://github.com/SoilRos/runflow/actions/workflows/tests.yml)
+[![tests](https://github.com/OPM/runflow/actions/workflows/tests.yml/badge.svg)](https://github.com/OPM/runflow/actions/workflows/tests.yml)
 
 The execution environment for [OPM](https://opm-project.org) (Open Porous
 Media). runflow runs Flow, Flow's Python and any other program the same way on
@@ -23,7 +23,7 @@ runflow is a set of bash scripts and needs no build step. Clone it, and add
 its directory to `PATH` and `MANPATH` for this shell:
 
 ```bash
-git clone <repository URL> runflow       # not public yet
+git clone https://github.com/OPM/runflow.git
 cd runflow
 export PATH="$PWD:$PATH"                 # the directory: do not symlink the script
 export MANPATH="$PWD/man:${MANPATH:-}"   # the ":" at the end keeps the system's man pages
