@@ -13,12 +13,18 @@ test_help_lists_directives_and_options() {
 
 test_version_is_the_release_and_in_the_changelog() {
   # The VERSION file is the one source: --version and -h print it, and
-  # CHANGELOG.md has its section. A copy without Git history, as installed
-  # from a release, prints the version alone.
+  # CHANGELOG.md has its section: a release's, or for a development version
+  # (MAJOR.MINOR.PATCH-dev, -rc.1, ...) Unreleased. A copy without Git
+  # history, as installed from a release, prints the version alone.
   local version
   read -r version < "$ROOT/VERSION"
-  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "VERSION is not MAJOR.MINOR.PATCH: $version"
-  grep -q "^## \[$version\] - " "$ROOT/CHANGELOG.md" || fail "CHANGELOG.md has no section for $version"
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] ||
+    fail "VERSION is not MAJOR.MINOR.PATCH, with a -suffix for a development version: $version"
+  if [[ "$version" == *-* ]]; then
+    grep -q "^## \[Unreleased\]" "$ROOT/CHANGELOG.md" || fail "CHANGELOG.md has no Unreleased section for $version"
+  else
+    grep -q "^## \[$version\] - " "$ROOT/CHANGELOG.md" || fail "CHANGELOG.md has no section for $version"
+  fi
 
   mkdir -p "$SANDBOX/install"
   cp -r "$ROOT/runflow" "$ROOT/lib" "$ROOT/etc" "$ROOT/VERSION" "$SANDBOX/install/"

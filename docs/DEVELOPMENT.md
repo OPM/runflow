@@ -189,16 +189,22 @@ reads it for `--version`, `-h` and its debug output. Versions follow semantic
 versioning (`CHANGELOG.md` says what each part means for users). Every change
 users notice gets a line under **Unreleased** in `CHANGELOG.md`, as it is made.
 
-To release, e.g. 0.2.0:
+Between releases, `main` is the development version of the next one, e.g.
+`0.2.0-dev`: only a release's tagged commit carries a plain number. To
+release, e.g. 0.2.0:
 
 1. In `CHANGELOG.md`, rename **Unreleased** to `[0.2.0] - YYYY-MM-DD`, and
    start a new, empty **Unreleased** above it.
-2. Write `0.2.0` into `VERSION`.
-3. Commit, and tag the commit `v0.2.0` (`git tag -a v0.2.0 -m "runflow 0.2.0"`):
-   checkouts then report how far they are from the release.
+2. Write `0.2.0` into `VERSION` (dropping `-dev`).
+3. Commit, and tag the commit `v0.2.0` (`git tag -a v0.2.0 -m "runflow 0.2.0"`),
+   then push it with the tags: checkouts report how far they are from it.
+4. Write the next development version, e.g. `0.3.0-dev`, into `VERSION`, and
+   commit.
 
-A test checks that `VERSION` is `MAJOR.MINOR.PATCH`, that `CHANGELOG.md` has
-its section, and that `runflow --version` prints it.
+A test checks that `VERSION` is `MAJOR.MINOR.PATCH` (with a `-dev` or other
+pre-release suffix between releases), that `CHANGELOG.md` has its section
+(**Unreleased** for a development version), and that `runflow --version`
+prints it.
 
 ## EXTENDING
 

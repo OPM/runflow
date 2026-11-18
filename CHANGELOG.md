@@ -7,7 +7,9 @@ Versions follow [semantic versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
 A new PATCH version only fixes bugs; a new MINOR version adds features that
 work with existing scripts and configurations. Before 1.0, a MINOR version
 may also change them; such changes are listed under **Changed** and say what
-to do.
+to do. A version with `-dev`, e.g. `0.2.0-dev`, is the development version
+on the way to that release (`runflow --version` adds the commit): its
+changes so far are under **Unreleased**.
 
 ## [Unreleased]
 
