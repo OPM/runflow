@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # @wait - wait for jobs (core directive)
 
-opmexec::directive wait "[JOBID...] | @directive ..." \
+flowrun::directive wait "[JOBID...] | @directive ..." \
   "Wait for jobs (default: all jobs of this run), or for the jobs a directive submits"
-opmexec::directive_arguments job
+flowrun::directive_arguments job
 
 # Wait for jobs:
 #   @wait ID...         the listed jobs
@@ -20,7 +20,7 @@ opmexec::directive_arguments job
   local jobids=("$@")
 
   if [[ "${1:-}" == -* ]]; then
-    opmexec::unknown_option wait "$1"
+    flowrun::unknown_option wait "$1"
     return 1
   elif [[ "${1:-}" == @* ]]; then
     output=$("$@") || return
@@ -30,91 +30,91 @@ opmexec::directive_arguments job
     if [[ -n "$output" ]]; then
       while IFS= read -r line; do
         if [[ "$line" =~ ^([a-z]+):[^[:space:]]+$ ]] &&
-           opmexec::validate_scheduler "${BASH_REMATCH[1]}" 2> /dev/null; then
+           flowrun::validate_scheduler "${BASH_REMATCH[1]}" 2> /dev/null; then
           jobids+=("$line")
         fi
         printf '%s\n' "$line"
       done <<< "$output"
     fi
     if [[ ${#jobids[@]} -eq 0 ]]; then
-      opmexec::error "@wait: $1 printed no job ID"
+      flowrun::error "@wait: $1 printed no job ID"
       return 1
     fi
   elif [[ $# -eq 0 ]]; then
-    mapfile -t jobids < <(opmexec::session_jobs)
+    mapfile -t jobids < <(flowrun::session_jobs)
   fi
   
   for jobid in "${jobids[@]}"; do
-    opmexec::wait_for_job "$jobid" || rc=1
+    flowrun::wait_for_job "$jobid" || rc=1
   done
   
   return $rc
 }
 
 # Internal: Wait for a specific job
-opmexec::wait_for_job() {
+flowrun::wait_for_job() {
   local jobid="$1" status
 
-  opmexec::parse_jobid "$jobid" || return 1
-  jobid="$_OPMEXEC_JOB_SCHEDULER:$_OPMEXEC_JOB_ID"
+  flowrun::parse_jobid "$jobid" || return 1
+  jobid="$_FLOWRUN_JOB_SCHEDULER:$_FLOWRUN_JOB_ID"
   
-  if opmexec::dry_run; then
-    opmexec::dry "wait $jobid (assumed to complete successfully)"
+  if flowrun::dry_run; then
+    flowrun::dry "wait $jobid (assumed to complete successfully)"
     return 0
   fi
   
-  opmexec::load_queue_backend "$_OPMEXEC_JOB_SCHEDULER" || return 1
+  flowrun::load_queue_backend "$_FLOWRUN_JOB_SCHEDULER" || return 1
 
-  # No time limit unless OPMEXEC_WAIT_TIMEOUT (seconds, 0 = none) is set
-  local timeout="${OPMEXEC_WAIT_TIMEOUT:-0}"
+  # No time limit unless FLOWRUN_WAIT_TIMEOUT (seconds, 0 = none) is set
+  local timeout="${FLOWRUN_WAIT_TIMEOUT:-0}"
   if ! [[ "$timeout" =~ ^[0-9]+$ ]]; then
-    opmexec::error "OPMEXEC_WAIT_TIMEOUT must be a number of seconds (got: $timeout)"
+    flowrun::error "FLOWRUN_WAIT_TIMEOUT must be a number of seconds (got: $timeout)"
     return 1
   fi
 
-  opmexec::debug "Waiting for job $jobid (timeout: ${timeout}s)..."
+  flowrun::debug "Waiting for job $jobid (timeout: ${timeout}s)..."
 
   # Backends that can block until a job ends do so; others are polled
-  if declare -F opmexec::backend_wait_job > /dev/null; then
-    status=$(opmexec::backend_wait_job "$_OPMEXEC_JOB_ID" "$timeout")
+  if declare -F flowrun::backend_wait_job > /dev/null; then
+    status=$(flowrun::backend_wait_job "$_FLOWRUN_JOB_ID" "$timeout")
     [[ $? -eq 2 ]] && status=TIMEOUT
   else
-    status=$(opmexec::poll_job_status "$_OPMEXEC_JOB_ID" "$timeout")
+    status=$(flowrun::poll_job_status "$_FLOWRUN_JOB_ID" "$timeout")
   fi
 
   case "$status" in
     COMPLETED)
-      opmexec::mark_reported "$jobid"
-      opmexec::info "Job $jobid completed successfully"
+      flowrun::mark_reported "$jobid"
+      flowrun::info "Job $jobid completed successfully"
       return 0
       ;;
     FAILED|CANCELLED)
-      opmexec::mark_reported "$jobid"
-      opmexec::error "Job $jobid ${status,,}"
+      flowrun::mark_reported "$jobid"
+      flowrun::error "Job $jobid ${status,,}"
       ;;
     UNKNOWN)
-      opmexec::mark_reported "$jobid"
-      opmexec::error "Job $jobid not found"
+      flowrun::mark_reported "$jobid"
+      flowrun::error "Job $jobid not found"
       ;;
     TIMEOUT)
-      opmexec::error "Job $jobid: gave up waiting after ${timeout}s (OPMEXEC_WAIT_TIMEOUT); the job keeps running"
+      flowrun::error "Job $jobid: gave up waiting after ${timeout}s (FLOWRUN_WAIT_TIMEOUT); the job keeps running"
       ;;
     *)
-      opmexec::error "Job $jobid: cannot get status from $_OPMEXEC_JOB_SCHEDULER"
+      flowrun::error "Job $jobid: cannot get status from $_FLOWRUN_JOB_SCHEDULER"
       ;;
   esac
   return 1
 }
 
-# Internal: Poll a job's status every OPMEXEC_POLL seconds until it is final.
+# Internal: Poll a job's status every FLOWRUN_POLL seconds until it is final.
 # Prints the final status, TIMEOUT (after TIMEOUT seconds; 0 = never) or
 # ERROR (after 5 failed status queries in a row; the backend's error is shown).
-opmexec::poll_job_status() {
+flowrun::poll_job_status() {
   local id="$1" timeout="$2" status failures=0 deadline=0
   (( timeout > 0 )) && deadline=$(( $(date +%s) + timeout ))
 
   while true; do
-    status=$(opmexec::backend_job_status "$id" 2>/dev/null)
+    status=$(flowrun::backend_job_status "$id" 2>/dev/null)
 
     case "$status" in
       COMPLETED|FAILED|CANCELLED|UNKNOWN)
@@ -128,7 +128,7 @@ opmexec::poll_job_status() {
         # No usable status: retry a few times (transient errors), then give up
         failures=$((failures + 1))
         if [[ $failures -ge 5 ]]; then
-          opmexec::backend_job_status "$id" > /dev/null  # show the backend's error
+          flowrun::backend_job_status "$id" > /dev/null  # show the backend's error
           echo ERROR
           return 1
         fi
@@ -139,6 +139,6 @@ opmexec::poll_job_status() {
       echo TIMEOUT
       return 2
     fi
-    sleep "${OPMEXEC_POLL:-1}"
+    sleep "${FLOWRUN_POLL:-1}"
   done
 }

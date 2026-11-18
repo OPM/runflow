@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# opmexec - the execution environment for OPM: run a workflow script or a
-# single command with the opmexec directives. Scripts can also load them with:
-# source opmexec.bash
+# flowrun - the execution environment for OPM: run a workflow script or a
+# single command with the flowrun directives. Scripts can also load them with:
+# source flowrun.bash
 
-# opmexec --library: the library's path, for source "$(opmexec --library)";
+# flowrun --library: the library's path, for source "$(flowrun --library)";
 # answered before anything is loaded
 if [[ "${1:-}" == --library ]]; then
-  echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/opmexec.sh"
+  echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/flowrun.sh"
   exit 0
 fi
 
-_OPMEXEC_CLI=true  # workflow mode is turned on below, after the options
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/opmexec.sh" || exit 1
+_FLOWRUN_CLI=true  # workflow mode is turned on below, after the options
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/flowrun.sh" || exit 1
 
-opmexec::cli_help() {
+flowrun::cli_help() {
   cat << 'HELP_EOF'
-opmexec - the execution environment for OPM (Open Porous Media)
+flowrun - the execution environment for OPM (Open Porous Media)
 
-Usage: opmexec [OPTIONS] script [args...]
-       opmexec [OPTIONS] -c command [args...]
-       opmexec [OPTIONS] --shell
-       opmexec [OPTIONS] --jobs[=all]
+Usage: flowrun [OPTIONS] script [args...]
+       flowrun [OPTIONS] -c command [args...]
+       flowrun [OPTIONS] --shell
+       flowrun [OPTIONS] --jobs[=all]
 
 Runs a bash script, with its arguments as $1, $2, ..., or with -c a single
 command; both use the directives below. Options are defaults for every
@@ -29,7 +29,7 @@ directive.
 Directives (scripts and commands run locally; only @submit uses the scheduler;
 @help @NAME shows a directive's options, its --NAME-options and settings):
 HELP_EOF
-  opmexec::directive_help
+  flowrun::directive_help
   cat << 'HELP_EOF'
 
 OPTIONS:
@@ -53,36 +53,36 @@ OPTIONS:
   --shell                   Start an interactive bash with the directives, the
                             options applied, Tab completion and job notices
   --jobs[=all]              List pending/running jobs (all: include finished)
-  --library                 Print the library's path (source "$(opmexec --library)");
+  --library                 Print the library's path (source "$(flowrun --library)");
                             must be the first argument
   -h, --help                Show this help message
 
 Options given to @submit (-n, -q, --scheduler, --depends-on,
---<scheduler>-options, -o OUTPUT) override or add to opmexec's.
+--<scheduler>-options, -o OUTPUT) override or add to flowrun's.
 Option strings use shell quoting: -o "--a='x y' --b=2".
 
 EXAMPLES:
-  opmexec -n 4 -c @mpi @flow CASE.DATA         # Flow here, on 4 MPI ranks
-  opmexec -c @wait @submit @flow CASE.DATA     # as a job of the local queue
-  opmexec --flow-version 2025.04 workflow.sh   # a workflow, with that Flow
-  opmexec --dry-run -s slurm workflow.sh       # the jobs it would submit
-  opmexec --jobs                               # the local queue's jobs
-  opmexec -c @flow -l                          # the Flow versions found
-  opmexec --shell                              # an interactive shell
+  flowrun -n 4 -c @mpi @flow CASE.DATA         # Flow here, on 4 MPI ranks
+  flowrun -c @wait @submit @flow CASE.DATA     # as a job of the local queue
+  flowrun --flow-version 2025.04 workflow.sh   # a workflow, with that Flow
+  flowrun --dry-run -s slurm workflow.sh       # the jobs it would submit
+  flowrun --jobs                               # the local queue's jobs
+  flowrun -c @flow -l                          # the Flow versions found
+  flowrun --shell                              # an interactive shell
 
-Scripts can also load the directives themselves, to run without opmexec:
-  source opmexec.bash; opmexec::setup [OPTIONS]
+Scripts can also load the directives themselves, to run without flowrun:
+  source flowrun.bash; flowrun::setup [OPTIONS]
 
 HELP_EOF
-  echo "Full reference: $(opmexec::man_command)"
+  echo "Full reference: $(flowrun::man_command)"
   echo
 }
 
 # Parse the command line and set up the run: handles --help/--jobs and errors,
-# applies the workflow options (opmexec::setup_option), and leaves the mode
-# (command or script) in _OPMEXEC_MODE and the command or script with its
-# arguments in _OPMEXEC_ARGS
-opmexec::cli_main() {
+# applies the workflow options (flowrun::setup_option), and leaves the mode
+# (command or script) in _FLOWRUN_MODE and the command or script with its
+# arguments in _FLOWRUN_ARGS
+flowrun::cli_main() {
   local command_mode=false jobs="" shell=false
 
   while [[ $# -gt 0 ]]; do
@@ -105,7 +105,7 @@ opmexec::cli_main() {
         shift
         ;;
       -h|--help)
-        opmexec::cli_help
+        flowrun::cli_help
         exit 0
         ;;
       --)
@@ -113,11 +113,11 @@ opmexec::cli_main() {
         break
         ;;
       *)
-        opmexec::setup_option "$@" || exit 1
-        if [[ "$_OPMEXEC_SHIFT" -gt 0 ]]; then
-          shift "$_OPMEXEC_SHIFT"
+        flowrun::setup_option "$@" || exit 1
+        if [[ "$_FLOWRUN_SHIFT" -gt 0 ]]; then
+          shift "$_FLOWRUN_SHIFT"
         elif [[ "$1" == -* ]]; then
-          opmexec::error "Unknown option: $1 (opmexec -h for help)"
+          flowrun::error "Unknown option: $1 (flowrun -h for help)"
           exit 1
         else
           break
@@ -130,56 +130,56 @@ opmexec::cli_main() {
   # and reach it as exported settings
   if $shell; then
     if [[ $# -gt 0 || "$command_mode" == true || -n "$jobs" ]]; then
-      opmexec::error "--shell starts an interactive shell: no script, -c or --jobs"
+      flowrun::error "--shell starts an interactive shell: no script, -c or --jobs"
       exit 1
     fi
-    exec "$BASH" --rcfile "$OPMEXEC_HOME/lib/shell_rc.sh" -i
+    exec "$BASH" --rcfile "$FLOWRUN_HOME/lib/shell_rc.sh" -i
   fi
 
   if [[ -n "$jobs" ]]; then
     local scheduler
-    scheduler=$(opmexec::get_scheduler) || exit 1
-    opmexec::load_queue_backend "$scheduler" || exit 1
-    opmexec::backend_list_jobs "$jobs"
+    scheduler=$(flowrun::get_scheduler) || exit 1
+    flowrun::load_queue_backend "$scheduler" || exit 1
+    flowrun::backend_list_jobs "$jobs"
     exit
   fi
 
   if [[ $# -eq 0 ]]; then
     if [[ "$command_mode" == true ]]; then
-      opmexec::error "Command required after -c"
+      flowrun::error "Command required after -c"
     else
-      opmexec::error "Script or -c command required"
+      flowrun::error "Script or -c command required"
     fi
-    opmexec::cli_help
+    flowrun::cli_help
     exit 1
   fi
 
   if [[ "$command_mode" == true ]]; then
-    _OPMEXEC_MODE=command
+    _FLOWRUN_MODE=command
   elif [[ -f "$1" ]]; then
-    _OPMEXEC_MODE=script
+    _FLOWRUN_MODE=script
   else
-    opmexec::error "Script not found: $1"
+    flowrun::error "Script not found: $1"
     exit 1
   fi
-  _OPMEXEC_ARGS=("$@")
+  _FLOWRUN_ARGS=("$@")
 }
 
-opmexec::cli_main "$@"
-set -- "${_OPMEXEC_ARGS[@]}"
-unset _OPMEXEC_ARGS
+flowrun::cli_main "$@"
+set -- "${_FLOWRUN_ARGS[@]}"
+unset _FLOWRUN_ARGS
 
-opmexec::workflow_mode
+flowrun::workflow_mode
 
 # Run the command or script here, at the top level rather than inside a
 # function, so that the workflow's variables are ordinary globals
-if [[ "$_OPMEXEC_MODE" == command ]]; then
+if [[ "$_FLOWRUN_MODE" == command ]]; then
   "$@"
 else
   # Shift the script off first: without arguments, source keeps the current
   # positional parameters, and the script would see itself as $1
-  _OPMEXEC_SCRIPT=$1
+  _FLOWRUN_SCRIPT=$1
   shift
-  source "$_OPMEXEC_SCRIPT" "$@"
+  source "$_FLOWRUN_SCRIPT" "$@"
 fi
 exit

@@ -5,8 +5,8 @@
 # New here: a loop of ensembles, each waiting for the previous update; the
 # runs' results feed a Python computation that writes the next members.
 # Failed runs do not stop the loop.
-#   opmexec examples/6_history_match.sh
-#   ENSEMBLE=64 ITERATIONS=4 opmexec examples/6_history_match.sh
+#   flowrun examples/6_history_match.sh
+#   ENSEMBLE=64 ITERATIONS=4 flowrun examples/6_history_match.sh
 # The case: SPE1 (SPE1CASE2), 5 years of history. The unknowns: the
 # horizontal permeability multiplier of each of its 3 layers. The data come
 # from a run with known multipliers (TRUTH), plus noise, to check the result:
@@ -49,7 +49,7 @@ truth=$(member "$dir/truth" $TRUTH) || exit 1
 @wait @submit -o "$dir/truth/job.log" @flow "$truth.DATA" > /dev/null || exit 1
 @flowpy "$esmda" observe "$truth" 1 "$dir/observed.txt" || exit 1
 @flowpy "$esmda" prior "$ENSEMBLE" 2 "$dir/params_0.txt" || exit 1
-[[ $OPMEXEC_DRY_RUN != true ]] || { echo "(dry run: the iterations need the results)"; exit 0; }
+[[ $FLOWRUN_DRY_RUN != true ]] || { echo "(dry run: the iterations need the results)"; exit 0; }
 
 for (( i = 0; i <= ITERATIONS; i++ )); do
   # Run every member at once (log10 multipliers in params_$i.txt)

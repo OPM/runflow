@@ -4,7 +4,7 @@
 # scenarios wait for the history by themselves.
 # New here: @submit --depends-on JOB starts a job only after JOB completed
 # (and never if it failed); the scenarios restart from the history's results.
-#   opmexec examples/4_prediction_scenarios.sh
+#   flowrun examples/4_prediction_scenarios.sh
 # The case: SPE1 (SPE1CASE2, gas injection). History: 5 years, to the end of
 # 2019 (report step 60); the scenarios change the well controls from then on.
 

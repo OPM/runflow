@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Helpers for opmexec tests, sourced in each test's own bash process.
+# Helpers for flowrun tests, sourced in each test's own bash process.
 # Each test runs in a sandbox: its own HOME, config, fake Flow and work dir.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OPMEXEC="$ROOT/opmexec"
+FLOWRUN="$ROOT/flowrun"
 TEST_SCHEDULER="${TEST_SCHEDULER:-localq}"
 
 # The tests use only what Linux and macOS share (macOS's wc, stat, ps, date
@@ -45,23 +45,23 @@ exec perl -MTime::HiRes=time -e 'printf "%.6f\n", time'
 EOF
   chmod +x "$SANDBOX/tools/now"
 
-  # Only the test configuration is read (OPMEXEC_CONFIG); nothing from the
+  # Only the test configuration is read (FLOWRUN_CONFIG); nothing from the
   # user's environment or files gets in
-  unset $(compgen -v OPMEXEC_) XDG_CONFIG_HOME XDG_STATE_HOME
-  cat > "$SANDBOX/opmexec.conf" << EOF
+  unset $(compgen -v FLOWRUN_) XDG_CONFIG_HOME XDG_STATE_HOME
+  cat > "$SANDBOX/flowrun.conf" << EOF
 # Test configuration
-OPMEXEC_SCHEDULER=$TEST_SCHEDULER
-OPMEXEC_FLOW_BIN_PATHS=("$SANDBOX/bin")
-OPMEXEC_FLOW_VERSION=flowtest
-OPMEXEC_FLOW_PYTHONPATH="$SANDBOX/lib/python{python}/site-packages/{version}"
-OPMEXEC_FLOW_PYTHON_MAP=('flow*:3.11' 'flowrc4[7-9]:3.12')   # the last match wins
+FLOWRUN_SCHEDULER=$TEST_SCHEDULER
+FLOWRUN_FLOW_BIN_PATHS=("$SANDBOX/bin")
+FLOWRUN_FLOW_VERSION=flowtest
+FLOWRUN_FLOW_PYTHONPATH="$SANDBOX/lib/python{python}/site-packages/{version}"
+FLOWRUN_FLOW_PYTHON_MAP=('flow*:3.11' 'flowrc4[7-9]:3.12')   # the last match wins
 EOF
   
   export SANDBOX TEST_SCHEDULER
   export HOME="$SANDBOX/home"
-  export OPMEXEC_CONFIG="$SANDBOX/opmexec.conf"
-  export OPMEXEC_LOCALQ_SLOTS=4 OPMEXEC_LOCALQ_POLL=0.2 OPMEXEC_POLL=0.2
-  export OPMEXEC_LOCALQ_DIR="$SANDBOX/localq"
+  export FLOWRUN_CONFIG="$SANDBOX/flowrun.conf"
+  export FLOWRUN_LOCALQ_SLOTS=4 FLOWRUN_LOCALQ_POLL=0.2 FLOWRUN_POLL=0.2
+  export FLOWRUN_LOCALQ_DIR="$SANDBOX/localq"
   # MPI tests start 2 ranks: allow that on machines with fewer cores than
   # Open MPI counts (Open MPI 4, and 5, which counts physical cores)
   export OMPI_MCA_rmaps_base_oversubscribe=1 PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
@@ -75,10 +75,10 @@ EOF
 teardown_sandbox() {
   local sandbox="$1"
   [[ -d "$sandbox/localq/active" ]] || return 0
-  HOME="$sandbox/home" OPMEXEC_CONFIG="$sandbox/opmexec.conf" OPMEXEC_LOCALQ_DIR="$sandbox/localq" bash -c '
-    source "$1/lib/opmexec.sh"
-    opmexec::load_queue_backend localq
-    for id in $(ls "$OPMEXEC_LOCALQ_DIR/active"); do opmexec::backend_cancel_job "$id"; done
+  HOME="$sandbox/home" FLOWRUN_CONFIG="$sandbox/flowrun.conf" FLOWRUN_LOCALQ_DIR="$sandbox/localq" bash -c '
+    source "$1/lib/flowrun.sh"
+    flowrun::load_queue_backend localq
+    for id in $(ls "$FLOWRUN_LOCALQ_DIR/active"); do flowrun::backend_cancel_job "$id"; done
   ' _ "$ROOT" > /dev/null 2>&1
 }
 
@@ -88,10 +88,10 @@ run() {
   RC=$?
 }
 
-# Write a workflow script from stdin and run it with opmexec [OPTIONS]
+# Write a workflow script from stdin and run it with flowrun [OPTIONS]
 run_script() {
   cat > workflow.sh
-  run "$OPMEXEC" "$@" workflow.sh
+  run "$FLOWRUN" "$@" workflow.sh
 }
 
 fail() {
@@ -150,9 +150,9 @@ wait_for() {
 
 # localq state directory and the number of session files left behind
 localq_dir() {
-  echo "$OPMEXEC_LOCALQ_DIR"
+  echo "$FLOWRUN_LOCALQ_DIR"
 }
 
 session_files() {
-  ls "$HOME/.local/state/opmexec" 2>/dev/null | grep -c '^session\.'
+  ls "$HOME/.local/state/flowrun" 2>/dev/null | grep -c '^session\.'
 }

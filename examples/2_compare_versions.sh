@@ -3,11 +3,11 @@
 # versions, one after the other, and compare a few summary vectors: PASS or
 # FAIL.
 # New here: @flow -v chooses the Flow version: a name from
-# OPMEXEC_FLOW_VERSIONS, an executable in PATH, or a path.
-#   opmexec -n 2 examples/2_compare_versions.sh 2025.04 dev
-#   TOLERANCE=1e-6 opmexec examples/2_compare_versions.sh dev /path/to/build/bin/flow
+# FLOWRUN_FLOW_VERSIONS, an executable in PATH, or a path.
+#   flowrun -n 2 examples/2_compare_versions.sh 2025.04 dev
+#   TOLERANCE=1e-6 flowrun examples/2_compare_versions.sh dev /path/to/build/bin/flow
 
-[[ $# -ge 2 ]] || { echo "usage: opmexec ${BASH_SOURCE[0]} VERSION_A VERSION_B [DECK]" >&2; exit 1; }
+[[ $# -ge 2 ]] || { echo "usage: flowrun ${BASH_SOURCE[0]} VERSION_A VERSION_B [DECK]" >&2; exit 1; }
 deck=${3:-${OPM_DECKS:?set OPM_DECKS to the directory with the decks (see examples/README.md)}/SPE1CASE2.DATA}
 python=$(dirname "${BASH_SOURCE[0]}")/python
 

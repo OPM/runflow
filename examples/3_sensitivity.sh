@@ -6,8 +6,8 @@
 # @wait waits for the jobs and fails if one failed. The local queue runs as
 # many jobs at once as the machine has cores; on a cluster (-s slurm, ...,
 # planned) the scheduler will. Here: many jobs from edited copies of one deck.
-#   opmexec examples/3_sensitivity.sh
-#   opmexec --dry-run -s slurm examples/3_sensitivity.sh   # the jobs, for SLURM
+#   flowrun examples/3_sensitivity.sh
+#   flowrun --dry-run -s slurm examples/3_sensitivity.sh   # the jobs, for SLURM
 
 deck=${1:-${OPM_DECKS:?set OPM_DECKS to the directory with the decks (see examples/README.md)}/SPE9_CP_PACKED.DATA}
 dir=$PWD/runs/sensitivity

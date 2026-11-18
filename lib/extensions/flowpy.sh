@@ -1,85 +1,85 @@
 #!/usr/bin/env bash
 # @flowpy - run the Python of a Flow version, with its opm bindings (bundled
-# extension; a later directory in OPMEXEC_DIRECTIVE_PATH may replace it).
-# Uses the opmexec::flow:: helpers of the @flow extension (flow.sh): the
+# extension; a later directory in FLOWRUN_DIRECTIVE_PATH may replace it).
+# Uses the flowrun::flow:: helpers of the @flow extension (flow.sh): the
 # version is chosen as for @flow, the Python as described in
-# opmexec::flow::python_info.
+# flowrun::flow::python_info.
 
-opmexec::directive flowpy "[-v VERSION] script.py|-c CODE|-m MODULE [ARGS...]" \
+flowrun::directive flowpy "[-v VERSION] script.py|-c CODE|-m MODULE [ARGS...]" \
   "Run the Python of a Flow version, with its opm bindings" \
   "Python interpreter options for every @flowpy, e.g. \"-u\""
-opmexec::directive_setting flowpy-version OPMEXEC_FLOWPY_VERSION \
+flowrun::directive_setting flowpy-version FLOWRUN_FLOWPY_VERSION \
   "Flow version whose Python every @flowpy without -v uses (default: --flow-version)" version
-opmexec::directive_option "-v, --flow-version VERSION" version \
+flowrun::directive_option "-v, --flow-version VERSION" version \
   "Flow version whose Python and opm bindings to use (as for @flow; default: --flowpy-version, else --flow-version)"
-opmexec::directive_option "--" - \
+flowrun::directive_option "--" - \
   "End of @flowpy's options: the rest goes to Python"
-opmexec::directive_arguments file
+flowrun::directive_arguments file
 
-# Build the command line of @flowpy into _OPMEXEC_ARGV, so that @mpi can
+# Build the command line of @flowpy into _FLOWRUN_ARGV, so that @mpi can
 # launch it too
-opmexec::command_flowpy() {
+flowrun::command_flowpy() {
   local version
-  _OPMEXEC_ARGV=()
+  _FLOWRUN_ARGV=()
 
   # Only -v is ours; everything else (script, -c, -m, ...) goes to Python
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -v|--flow-version) opmexec::has_value @flowpy "$@" || return 1; version="$2"; shift 2 ;;
+      -v|--flow-version) flowrun::has_value @flowpy "$@" || return 1; version="$2"; shift 2 ;;
       --) shift; break ;;
       *) break ;;
     esac
   done
 
   if [[ $# -eq 0 ]]; then
-    opmexec::error "@flowpy: script, -c CODE or -m MODULE required"
+    flowrun::error "@flowpy: script, -c CODE or -m MODULE required"
     return 1
   fi
-  if ! declare -F opmexec::flow::python_info > /dev/null; then
-    opmexec::error "@flowpy: needs the opmexec::flow:: helpers of the @flow extension (flow.sh)"
+  if ! declare -F flowrun::flow::python_info > /dev/null; then
+    flowrun::error "@flowpy: needs the flowrun::flow:: helpers of the @flow extension (flow.sh)"
     return 1
   fi
 
-  version=${version:-${OPMEXEC_FLOWPY_VERSION:-$OPMEXEC_FLOW_VERSION}}
+  version=${version:-${FLOWRUN_FLOWPY_VERSION:-$FLOWRUN_FLOW_VERSION}}
   local problem="" exe=""
-  opmexec::flow::find "$version" && exe=$_OPMEXEC_FLOW_FOUND
-  opmexec::flow::python_info "$version" "$exe"
+  flowrun::flow::find "$version" && exe=$_FLOWRUN_FLOW_FOUND
+  flowrun::flow::python_info "$version" "$exe"
 
   # A Flow version not found is a problem, unless the map names its Python
-  if [[ -z "$exe" && "$_OPMEXEC_FLOW_PYTHON_FROM" != map ]]; then
-    problem=$_OPMEXEC_FLOW_PROBLEM
-  elif [[ "$OPMEXEC_FLOW_PYTHONPATH" == auto && -z "$_OPMEXEC_FLOW_BINDINGS" ]]; then
+  if [[ -z "$exe" && "$_FLOWRUN_FLOW_PYTHON_FROM" != map ]]; then
+    problem=$_FLOWRUN_FLOW_PROBLEM
+  elif [[ "$FLOWRUN_FLOW_PYTHONPATH" == auto && -z "$_FLOWRUN_FLOW_BINDINGS" ]]; then
     problem="no opm Python bindings found for flow $version"
-    [[ "$_OPMEXEC_FLOW_EXE" == "$version" ]] || problem+=" ($_OPMEXEC_FLOW_EXE)"
-    problem+="; install them with Flow, or set OPMEXEC_FLOW_PYTHONPATH"
-  elif [[ -z "$_OPMEXEC_FLOW_INTERPRETER" ]]; then
-    problem="Python ${_OPMEXEC_FLOW_PYTHON:-3} not found (needed by flow $version); install it, or set OPMEXEC_FLOW_PYTHON_MAP"
-  elif [[ -n "$_OPMEXEC_FLOW_MODULE" ]] &&
-       ! opmexec::flow::module_loadable "$_OPMEXEC_FLOW_INTERPRETER" "$_OPMEXEC_FLOW_MODULE"; then
-    problem="$_OPMEXEC_FLOW_INTERPRETER cannot import the opm bindings of flow $version: ${_OPMEXEC_FLOW_MODULE##*/} is for another Python; set OPMEXEC_FLOW_PYTHON_MAP or OPMEXEC_FLOW_PYTHONPATH"
+    [[ "$_FLOWRUN_FLOW_EXE" == "$version" ]] || problem+=" ($_FLOWRUN_FLOW_EXE)"
+    problem+="; install them with Flow, or set FLOWRUN_FLOW_PYTHONPATH"
+  elif [[ -z "$_FLOWRUN_FLOW_INTERPRETER" ]]; then
+    problem="Python ${_FLOWRUN_FLOW_PYTHON:-3} not found (needed by flow $version); install it, or set FLOWRUN_FLOW_PYTHON_MAP"
+  elif [[ -n "$_FLOWRUN_FLOW_MODULE" ]] &&
+       ! flowrun::flow::module_loadable "$_FLOWRUN_FLOW_INTERPRETER" "$_FLOWRUN_FLOW_MODULE"; then
+    problem="$_FLOWRUN_FLOW_INTERPRETER cannot import the opm bindings of flow $version: ${_FLOWRUN_FLOW_MODULE##*/} is for another Python; set FLOWRUN_FLOW_PYTHON_MAP or FLOWRUN_FLOW_PYTHONPATH"
   fi
   if [[ -n "$problem" ]]; then
-    opmexec::dry_run || { opmexec::error "@flowpy: $problem"; return 1; }
-    opmexec::dry "warning: $problem"
+    flowrun::dry_run || { flowrun::error "@flowpy: $problem"; return 1; }
+    flowrun::dry "warning: $problem"
   fi
 
   # For the record (stderr: the terminal, or the job's log), as @flow does:
   # which interpreter runs, and its bindings; stdout stays Python's
-  local interpreter=${_OPMEXEC_FLOW_INTERPRETER:-python${_OPMEXEC_FLOW_PYTHON:-3}}
-  local record="flow $version: $interpreter; $(opmexec::flow::python_summary)"
-  if opmexec::dry_run; then
-    opmexec::dry "$record"
+  local interpreter=${_FLOWRUN_FLOW_INTERPRETER:-python${_FLOWRUN_FLOW_PYTHON:-3}}
+  local record="flow $version: $interpreter; $(flowrun::flow::python_summary)"
+  if flowrun::dry_run; then
+    flowrun::dry "$record"
   else
-    opmexec::info "@flowpy: $record"
+    flowrun::info "@flowpy: $record"
   fi
 
   local environment=()
-  [[ -z "$_OPMEXEC_FLOW_BINDINGS" ]] ||
-    environment=(env "PYTHONPATH=$_OPMEXEC_FLOW_BINDINGS${PYTHONPATH:+:$PYTHONPATH}")
+  [[ -z "$_FLOWRUN_FLOW_BINDINGS" ]] ||
+    environment=(env "PYTHONPATH=$_FLOWRUN_FLOW_BINDINGS${PYTHONPATH:+:$PYTHONPATH}")
 
   # Interpreter options for every @flowpy (--flowpy-options), then the script
-  opmexec::directive_options flowpy || return 1
-  _OPMEXEC_ARGV=("${environment[@]}" "$interpreter" "${_OPMEXEC_WORDS[@]}" "$@")
+  flowrun::directive_options flowpy || return 1
+  _FLOWRUN_ARGV=("${environment[@]}" "$interpreter" "${_FLOWRUN_WORDS[@]}" "$@")
 }
 
 # Run Python as Flow's: the interpreter its opm bindings were built for, with
@@ -88,12 +88,12 @@ opmexec::command_flowpy() {
 #   @mpi -n 4 @flowpy parallel_script.py            (e.g. with mpi4py)
 #   @wait @submit @flowpy postprocess.py CASE.DATA
 @flowpy() {
-  opmexec::command_flowpy "$@" || return 1
+  flowrun::command_flowpy "$@" || return 1
 
-  if opmexec::dry_run; then
-    opmexec::dry "run: $(opmexec::quoted "${_OPMEXEC_ARGV[@]}")"
+  if flowrun::dry_run; then
+    flowrun::dry "run: $(flowrun::quoted "${_FLOWRUN_ARGV[@]}")"
     return 0
   fi
 
-  "${_OPMEXEC_ARGV[@]}"
+  "${_FLOWRUN_ARGV[@]}"
 }

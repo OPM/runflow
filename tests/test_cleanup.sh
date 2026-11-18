@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Session cleanup on exit and signals; submitted jobs survive opmexec
+# Session cleanup on exit and signals; submitted jobs survive flowrun
 
 test_session_removed_on_normal_exit() {
-  run "$OPMEXEC" -c @wait @submit true
+  run "$FLOWRUN" -c @wait @submit true
   assert_rc 0
   assert_eq "$(session_files)" 0
 }
@@ -26,21 +26,21 @@ test_session_removed_on_signals() {
 EOF
   local sig rc
   for sig in INT TERM HUP; do
-    OPMEXEC_DEBUG=true timeout -s "$sig" 1.5 "$OPMEXEC" workflow.sh > "$sig.log" 2>&1
+    FLOWRUN_DEBUG=true timeout -s "$sig" 1.5 "$FLOWRUN" workflow.sh > "$sig.log" 2>&1
     rc=$?
     # The handler may still be finishing when timeout returns. On failure,
-    # what is needed to tell why: timeout's exit status (124: opmexec ended
-    # after the signal), opmexec's processes left, and its debug output
+    # what is needed to tell why: timeout's exit status (124: flowrun ended
+    # after the signal), flowrun's processes left, and its debug output
     wait_for 10 no_session_files ||
       fail "session file left after $sig (timeout exit status $rc; processes left:
 $(ps -eo pid,pgid,stat,args | grep -F "$SANDBOX" | grep -v grep)
---- opmexec's output:
+--- flowrun's output:
 $(cat "$sig.log")"
   done
 }
 
 test_second_signal_does_not_stop_the_cleanup() {
-  # Two HUPs to opmexec's process group, as timeout and closing terminals
+  # Two HUPs to flowrun's process group, as timeout and closing terminals
   # send them: the second arrives while the exit handler removes the session
   # file, and must stop neither the handler nor the rm it runs. The workflow
   # makes rm slow: a sleep first, which a signal it did not ignore would end,
@@ -56,7 +56,7 @@ sleep 30 &
 wait
 WORKFLOW
   local pid rc
-  OPMEXEC_DEBUG=true perl -e 'setpgrp(0, 0); exec @ARGV' "$OPMEXEC" workflow.sh > out.log 2>&1 &
+  FLOWRUN_DEBUG=true perl -e 'setpgrp(0, 0); exec @ARGV' "$FLOWRUN" workflow.sh > out.log 2>&1 &
   pid=$!
   wait_for 10 test -f started || fail "the workflow did not start"
   kill -HUP -- "-$pid"
@@ -79,7 +79,7 @@ rm() { echo > in-rm; sleep 1 && command rm "$@"; }
 @submit true > /dev/null
 WORKFLOW
   local pid rc
-  OPMEXEC_DEBUG=true perl -e 'setpgrp(0, 0); exec @ARGV' "$OPMEXEC" workflow.sh > out.log 2>&1 &
+  FLOWRUN_DEBUG=true perl -e 'setpgrp(0, 0); exec @ARGV' "$FLOWRUN" workflow.sh > out.log 2>&1 &
   pid=$!
   wait_for 10 test -f in-rm || fail "the exit handler did not start"
   kill -HUP -- "-$pid"
@@ -92,29 +92,29 @@ WORKFLOW
 
 test_session_file_of_an_ended_run_is_removed() {
   # Left by a run that could not clean up (kill -9): removed by the next
-  # opmexec on the same host, whose process is gone
-  local state="$HOME/.local/state/opmexec" pid
+  # flowrun on the same host, whose process is gone
+  local state="$HOME/.local/state/flowrun" pid
   mkdir -p "$state"
   sh -c 'exit 0' & pid=$!
   wait "$pid"
   echo localq:1 > "$state/session.${HOSTNAME%%.*}.$pid"
   echo localq:1 > "$state/session.otherhost.$pid"   # another host's: kept
-  run "$OPMEXEC" -c true
+  run "$FLOWRUN" -c true
   assert_rc 0
   [[ ! -e "$state/session.${HOSTNAME%%.*}.$pid" ]] || fail "the ended run's session file is left"
   [[ -e "$state/session.otherhost.$pid" ]] || fail "another host's session file was removed"
 }
 
 test_session_removed_on_closed_pipe() {
-  "$OPMEXEC" --dry-run -c @wait @submit true 2>&1 | head -1 > /dev/null
+  "$FLOWRUN" --dry-run -c @wait @submit true 2>&1 | head -1 > /dev/null
   assert_eq "$(session_files)" 0
 }
 
-test_submitted_jobs_survive_opmexec_kill() {
+test_submitted_jobs_survive_flowrun_kill() {
   cat > workflow.sh << 'EOF'
 @submit -o "$PWD/out.log" sh -c 'sleep 1.5; echo survived' > /dev/null
 @wait
 EOF
-  timeout -s TERM 0.8 "$OPMEXEC" workflow.sh > /dev/null 2>&1
-  wait_for 10 grep -q survived out.log 2> /dev/null || fail "job did not finish after opmexec was killed"
+  timeout -s TERM 0.8 "$FLOWRUN" workflow.sh > /dev/null 2>&1
+  wait_for 10 grep -q survived out.log 2> /dev/null || fail "job did not finish after flowrun was killed"
 }

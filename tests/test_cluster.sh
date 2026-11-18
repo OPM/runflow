@@ -11,8 +11,8 @@ test_job_gets_settings_that_were_not_exported() {
   # difference, as the localq runner only inherits exported ones.
   require_localq
   cat > sourcing.sh << EOF
-source "$ROOT/lib/opmexec.sh" || exit 1
-OPMEXEC_FLOW_OPTIONS="--not-exported"
+source "$ROOT/lib/flowrun.sh" || exit 1
+FLOWRUN_FLOW_OPTIONS="--not-exported"
 @wait @submit -o "\$PWD/out.log" @flow A.DATA
 EOF
   run bash sourcing.sh
@@ -22,53 +22,53 @@ EOF
 
 test_job_command_carries_workflow_settings_only() {
   require_localq
-  run "$OPMEXEC" -q other --flow-options "--x=1" -c @wait @submit true
+  run "$FLOWRUN" -q other --flow-options "--x=1" -c @wait @submit true
   assert_rc 0
   local cmd
   cmd=$(saved_command 1)
-  for setting in OPMEXEC_JOB_SCHEDULER=localq "OPMEXEC_CONFIG=$OPMEXEC_CONFIG" \
-                 OPMEXEC_SCHEDULER=localq OPMEXEC_FLOW_OPTIONS=--x=1 OPMEXEC_MPI_OPTIONS= \
-                 OPMEXEC_DIRECTIVE_PATH= OPMEXEC_DEBUG=false; do
+  for setting in FLOWRUN_JOB_SCHEDULER=localq "FLOWRUN_CONFIG=$FLOWRUN_CONFIG" \
+                 FLOWRUN_SCHEDULER=localq FLOWRUN_FLOW_OPTIONS=--x=1 FLOWRUN_MPI_OPTIONS= \
+                 FLOWRUN_DIRECTIVE_PATH= FLOWRUN_DEBUG=false; do
     [[ "$cmd" == *" $setting"* ]] || fail "job command lacks $setting: $cmd"
   done
-  [[ "$cmd" == *" OPMEXEC_NP=1 "* ]] || fail "job command lacks its process count"
-  for setting in OPMEXEC_QUEUE OPMEXEC_DEPENDS_ON OPMEXEC_SLURM_OPTIONS; do
+  [[ "$cmd" == *" FLOWRUN_NP=1 "* ]] || fail "job command lacks its process count"
+  for setting in FLOWRUN_QUEUE FLOWRUN_DEPENDS_ON FLOWRUN_SLURM_OPTIONS; do
     [[ "$cmd" != *" $setting="* ]] || fail "job command should not pass $setting"
   done
 }
 
 test_relative_config_path_is_made_absolute() {
   require_localq
-  cp "$OPMEXEC_CONFIG" my.conf
-  OPMEXEC_CONFIG=my.conf run "$OPMEXEC" -c @wait @submit true
+  cp "$FLOWRUN_CONFIG" my.conf
+  FLOWRUN_CONFIG=my.conf run "$FLOWRUN" -c @wait @submit true
   assert_rc 0
-  [[ "$(saved_command 1)" == *" OPMEXEC_CONFIG=$PWD/my.conf "* ]] || fail "config path not absolute"
+  [[ "$(saved_command 1)" == *" FLOWRUN_CONFIG=$PWD/my.conf "* ]] || fail "config path not absolute"
 }
 
 test_job_setup_runs_first() {
-  printf '%s\n' "OPMEXEC_JOB_SETUP='export GREETING=\"hi there\"'" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" -c @wait @submit -o "$PWD/out.log" sh -c 'echo "setup says $GREETING"'
+  printf '%s\n' "FLOWRUN_JOB_SETUP='export GREETING=\"hi there\"'" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" -c @wait @submit -o "$PWD/out.log" sh -c 'echo "setup says $GREETING"'
   assert_rc 0
   assert_file_contains out.log "setup says hi there"
 }
 
 test_job_setup_failure_fails_the_job() {
-  printf '%s\n' "OPMEXEC_JOB_SETUP='false'" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" -c @wait @submit -o "$PWD/out.log" touch ran.txt
+  printf '%s\n' "FLOWRUN_JOB_SETUP='false'" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" -c @wait @submit -o "$PWD/out.log" touch ran.txt
   assert_rc 1
   assert_contains "$OUT" "failed"
-  assert_file_contains out.log "opmexec: job setup failed: false"
+  assert_file_contains out.log "flowrun: job setup failed: false"
   [[ ! -e ran.txt ]] || fail "the command ran after the setup failed"
 }
 
 test_listing_hides_setup_and_settings() {
   require_localq
-  printf '%s\n' "OPMEXEC_JOB_SETUP='export A=\"1 2\"'" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" --flow-options "--x='a b'" -c @wait @submit @mpi @flow A.DATA
-  run "$OPMEXEC" --jobs=all
+  printf '%s\n' "FLOWRUN_JOB_SETUP='export A=\"1 2\"'" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" --flow-options "--x='a b'" -c @wait @submit @mpi @flow A.DATA
+  run "$FLOWRUN" --jobs=all
   assert_contains "$OUT" "  @mpi @flow A.DATA"
-  assert_not_contains "$OUT" "OPMEXEC_"
-  assert_not_contains "$OUT" "opmexec-job"
+  assert_not_contains "$OUT" "FLOWRUN_"
+  assert_not_contains "$OUT" "flowrun-job"
 }
 
 test_job_process_count_reaches_scripts_in_the_job() {
@@ -76,12 +76,12 @@ test_job_process_count_reaches_scripts_in_the_job() {
   # the script defaults to it, not to the submitting workflow's -n
   cat > job.sh << EOF
 #!/usr/bin/env bash
-source "$ROOT/lib/opmexec.sh" || exit 1
-echo "np=\$OPMEXEC_NP"
-OPMEXEC_DRY_RUN=true @mpi @flow A.DATA
+source "$ROOT/lib/flowrun.sh" || exit 1
+echo "np=\$FLOWRUN_NP"
+FLOWRUN_DRY_RUN=true @mpi @flow A.DATA
 EOF
   chmod +x job.sh
-  run "$OPMEXEC" -n 1 -c @wait @submit -n 3 -o "$PWD/out.log" ./job.sh
+  run "$FLOWRUN" -n 1 -c @wait @submit -n 3 -o "$PWD/out.log" ./job.sh
   assert_rc 0
   assert_file_contains out.log "np=3"
   assert_file_contains out.log "run: mpirun -np 3"

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # @cancel - cancel jobs (core directive)
 
-opmexec::directive cancel "[JOBID...] | --all" "Cancel jobs (--all, or no IDs in a script: all active jobs of this run)"
-opmexec::directive_option "--all" - "Cancel every pending and running job of this run"
-opmexec::directive_arguments job
+flowrun::directive cancel "[JOBID...] | --all" "Cancel jobs (--all, or no IDs in a script: all active jobs of this run)"
+flowrun::directive_option "--all" - "Cancel every pending and running job of this run"
+flowrun::directive_arguments job
 
 # Cancel job(s); --all (or no args, except in interactive shells): cancel this
 # session's pending/running jobs
@@ -12,47 +12,47 @@ opmexec::directive_arguments job
   local jobids=("$@")
   
   if [[ "${1:-}" == -* && "$1" != --all ]]; then
-    opmexec::unknown_option cancel "$1"
+    flowrun::unknown_option cancel "$1"
     return 1
   elif [[ "${1:-}" == --all ]]; then
     all=true
     shift
     jobids=("$@")
   elif [[ $# -eq 0 ]]; then
-    if [[ -n "${_OPMEXEC_INTERACTIVE:-}" ]]; then
-      opmexec::error "@cancel: name the jobs to cancel, or use @cancel --all for every job of this shell (Tab lists them)"
+    if [[ -n "${_FLOWRUN_INTERACTIVE:-}" ]]; then
+      flowrun::error "@cancel: name the jobs to cancel, or use @cancel --all for every job of this shell (Tab lists them)"
       return 1
     fi
     all=true
   fi
   if $all; then
     if [[ $# -gt 0 ]]; then
-      opmexec::error "@cancel: --all takes no job IDs"
+      flowrun::error "@cancel: --all takes no job IDs"
       return 1
     fi
-    mapfile -t jobids < <(opmexec::session_jobs)
+    mapfile -t jobids < <(flowrun::session_jobs)
   fi
   
   for jobid in "${jobids[@]}"; do
-    opmexec::parse_jobid "$jobid" || { rc=1; continue; }
-    jobid="$_OPMEXEC_JOB_SCHEDULER:$_OPMEXEC_JOB_ID"
+    flowrun::parse_jobid "$jobid" || { rc=1; continue; }
+    jobid="$_FLOWRUN_JOB_SCHEDULER:$_FLOWRUN_JOB_ID"
     
-    if opmexec::dry_run; then
-      opmexec::dry "cancel $jobid"
+    if flowrun::dry_run; then
+      flowrun::dry "cancel $jobid"
       continue
     fi
     
-    opmexec::load_queue_backend "$_OPMEXEC_JOB_SCHEDULER" || { rc=1; continue; }
+    flowrun::load_queue_backend "$_FLOWRUN_JOB_SCHEDULER" || { rc=1; continue; }
     
     # Session jobs: skip the ones that already finished
     if $all; then
-      status=$(opmexec::backend_job_status "$_OPMEXEC_JOB_ID" 2>/dev/null)
+      status=$(flowrun::backend_job_status "$_FLOWRUN_JOB_ID" 2>/dev/null)
       [[ "$status" == PENDING || "$status" == RUNNING ]] || continue
     fi
     
-    if opmexec::backend_cancel_job "$_OPMEXEC_JOB_ID"; then
-      opmexec::info "Job $jobid cancelled"
-      opmexec::mark_reported "$jobid"
+    if flowrun::backend_cancel_job "$_FLOWRUN_JOB_ID"; then
+      flowrun::info "Job $jobid cancelled"
+      flowrun::mark_reported "$jobid"
     else
       rc=1
     fi

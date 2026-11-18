@@ -35,14 +35,14 @@ test_named_versions_select_builds_with_the_same_name() {
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/build/bin/Release/flow"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/build/bin/Debug/flow"
   cp "$SANDBOX/bin/flowtest" "$HOME/opm/bin/flow"
-  cat >> "$OPMEXEC_CONFIG" << EOF
-OPMEXEC_FLOW_VERSIONS=('dev=$SANDBOX/build/bin/Release' 'dev-debug=$SANDBOX/build/bin/Debug/flow' 'mine=~/opm/bin')
+  cat >> "$FLOWRUN_CONFIG" << EOF
+FLOWRUN_FLOW_VERSIONS=('dev=$SANDBOX/build/bin/Release' 'dev-debug=$SANDBOX/build/bin/Debug/flow' 'mine=~/opm/bin')
 EOF
-  run "$OPMEXEC" -c @flow -v dev A.DATA
+  run "$FLOWRUN" -c @flow -v dev A.DATA
   assert_contains "$OUT" "exe=$SANDBOX/build/bin/Release/flow"
-  run "$OPMEXEC" -c @flow -v dev-debug A.DATA
+  run "$FLOWRUN" -c @flow -v dev-debug A.DATA
   assert_contains "$OUT" "exe=$SANDBOX/build/bin/Debug/flow"
-  run "$OPMEXEC" -c @flow -v mine A.DATA
+  run "$FLOWRUN" -c @flow -v mine A.DATA
   assert_contains "$OUT" "exe=$HOME/opm/bin/flow"
 }
 
@@ -53,54 +53,54 @@ test_last_item_of_a_name_wins() {
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/site/flow"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/user/flow"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/old/flow"
-  cat >> "$OPMEXEC_CONFIG" << EOF
-OPMEXEC_FLOW_VERSIONS=('stable=$SANDBOX/site' 'old=$SANDBOX/old')
-OPMEXEC_FLOW_VERSIONS+=('stable=$SANDBOX/user' 'dev=$SANDBOX/user')
+  cat >> "$FLOWRUN_CONFIG" << EOF
+FLOWRUN_FLOW_VERSIONS=('stable=$SANDBOX/site' 'old=$SANDBOX/old')
+FLOWRUN_FLOW_VERSIONS+=('stable=$SANDBOX/user' 'dev=$SANDBOX/user')
 EOF
-  run "$OPMEXEC" -c @flow -v stable A.DATA
+  run "$FLOWRUN" -c @flow -v stable A.DATA
   assert_contains "$OUT" "exe=$SANDBOX/user/flow"
-  run "$OPMEXEC" -c @flow -v old A.DATA
+  run "$FLOWRUN" -c @flow -v old A.DATA
   assert_contains "$OUT" "exe=$SANDBOX/old/flow"
-  run "$OPMEXEC" -c @flow -l
+  run "$FLOWRUN" -c @flow -l
   assert_contains "$OUT" "  stable    redefined by a later item (or configuration file): $SANDBOX/site/flow"
   [[ "$OUT" =~ "  stable    2099.10"[^$'\n']*"$SANDBOX/user/flow" ]] || fail "no row for the stable used"
 }
 
 test_last_matching_python_map_item_wins() {
-  source "$ROOT/lib/opmexec.sh" > /dev/null 2>&1
-  OPMEXEC_FLOW_PYTHON_MAP=('flow*:3.11' 'dev:3.12')
-  OPMEXEC_FLOW_PYTHON_MAP+=('flow2025*:3.13')
-  assert_eq "$(opmexec::flow::python_map flow2025.04)" 3.13
-  assert_eq "$(opmexec::flow::python_map flow2024.10)" 3.11
-  assert_eq "$(opmexec::flow::python_map dev)" 3.12
+  source "$ROOT/lib/flowrun.sh" > /dev/null 2>&1
+  FLOWRUN_FLOW_PYTHON_MAP=('flow*:3.11' 'dev:3.12')
+  FLOWRUN_FLOW_PYTHON_MAP+=('flow2025*:3.13')
+  assert_eq "$(flowrun::flow::python_map flow2025.04)" 3.13
+  assert_eq "$(flowrun::flow::python_map flow2024.10)" 3.11
+  assert_eq "$(flowrun::flow::python_map dev)" 3.12
 }
 
 test_named_versions_win_over_executable_names() {
   mkdir -p "$SANDBOX/other"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/other/flow"
-  printf '%s\n' "OPMEXEC_FLOW_VERSIONS=('flowtest=$SANDBOX/other/flow')" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" -c @flow A.DATA
+  printf '%s\n' "FLOWRUN_FLOW_VERSIONS=('flowtest=$SANDBOX/other/flow')" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" -c @flow A.DATA
   assert_contains "$OUT" "exe=$SANDBOX/other/flow"
 }
 
 test_named_version_problems() {
   fake_other_flow() { printf '%s\n' '#!/bin/sh' 'echo "Flow, a static type checker"' > "$1"; chmod +x "$1"; }
   fake_other_flow "$SANDBOX/jsflow"
-  printf '%s\n' "OPMEXEC_FLOW_VERSIONS=('gone=/nowhere/flow' 'js=$SANDBOX/jsflow')" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" -c @flow -v gone A.DATA
+  printf '%s\n' "FLOWRUN_FLOW_VERSIONS=('gone=/nowhere/flow' 'js=$SANDBOX/jsflow')" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" -c @flow -v gone A.DATA
   assert_rc 1
-  assert_contains "$OUT" "Flow version gone (OPMEXEC_FLOW_VERSIONS): executable not found: /nowhere/flow"
-  run "$OPMEXEC" -c @flow -v js A.DATA
+  assert_contains "$OUT" "Flow version gone (FLOWRUN_FLOW_VERSIONS): executable not found: /nowhere/flow"
+  run "$FLOWRUN" -c @flow -v js A.DATA
   assert_rc 1
-  assert_contains "$OUT" "Flow version js (OPMEXEC_FLOW_VERSIONS): not OPM Flow: $SANDBOX/jsflow"
+  assert_contains "$OUT" "Flow version js (FLOWRUN_FLOW_VERSIONS): not OPM Flow: $SANDBOX/jsflow"
 }
 
 test_named_versions_reach_jobs() {
   require_localq
   mkdir -p "$SANDBOX/build"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/build/flow"
-  printf '%s\n' "OPMEXEC_FLOW_VERSIONS=('dev=$SANDBOX/build')" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" -c @wait @submit -o "$PWD/out.log" @flow -v dev A.DATA
+  printf '%s\n' "FLOWRUN_FLOW_VERSIONS=('dev=$SANDBOX/build')" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" -c @wait @submit -o "$PWD/out.log" @flow -v dev A.DATA
   assert_rc 0
   assert_file_contains out.log "exe=$SANDBOX/build/flow"
 }
@@ -109,8 +109,8 @@ test_named_versions_reach_jobs() {
 
 test_opm_version_selects_the_only_build_reporting_it() {
   fake_old_flow "$SANDBOX/opm2024/flow" 2024.10
-  printf '%s\n' "OPMEXEC_FLOW_VERSIONS=('old=$SANDBOX/opm2024')" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" -c @flow -v 2024.10 A.DATA
+  printf '%s\n' "FLOWRUN_FLOW_VERSIONS=('old=$SANDBOX/opm2024')" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" -c @flow -v 2024.10 A.DATA
   assert_rc 0
   assert_contains "$OUT" "FLOW exe=$SANDBOX/opm2024/flow"
 }
@@ -119,22 +119,22 @@ test_opm_version_never_guesses_among_builds() {
   mkdir -p "$SANDBOX/rel" "$SANDBOX/dbg/bin/Debug"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/rel/flow"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/bin/flow"
-  printf '%s\n' "OPMEXEC_FLOW_VERSIONS=('dev=$SANDBOX/rel')" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" -c @flow -v 2099.10 A.DATA
+  printf '%s\n' "FLOWRUN_FLOW_VERSIONS=('dev=$SANDBOX/rel')" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" -c @flow -v 2099.10 A.DATA
   assert_rc 1
-  assert_contains "$OUT" "Flow version 2099.10 is ambiguous: 2 builds report it; name one in OPMEXEC_FLOW_VERSIONS or give its path:"
+  assert_contains "$OUT" "Flow version 2099.10 is ambiguous: 2 builds report it; name one in FLOWRUN_FLOW_VERSIONS or give its path:"
   assert_contains "$OUT" "        $SANDBOX/rel/flow (2099.10 (abc1234), Release, built 2099-01-02 03:04:05)"
   assert_contains "$OUT" "        $SANDBOX/bin/flow (2099.10 (abc1234)"
 
   # In a dry run, the same reason
-  run "$OPMEXEC" --dry-run -c @flow -v 2099.10 A.DATA
+  run "$FLOWRUN" --dry-run -c @flow -v 2099.10 A.DATA
   assert_contains "$OUT" "warning: Flow version 2099.10 is ambiguous"
 }
 
 # --- Build information ---
 
 test_build_info_from_flow() {
-  run "$OPMEXEC" -c @flow -l flowtest
+  run "$FLOWRUN" -c @flow -l flowtest
   assert_rc 0
   assert_contains "$OUT" "  Executable   $SANDBOX/bin/flowtest"
   assert_contains "$OUT" "  OPM version  2099.10"
@@ -149,7 +149,7 @@ test_build_info_of_older_flow_from_its_log_header() {
   mkdir -p "$SANDBOX/tmp"
   export TMPDIR="$SANDBOX/tmp"
   fake_old_flow "$SANDBOX/old/flow" 2024.10 "deadbee*" "2024-10-30 at 12:00:00"
-  run "$OPMEXEC" -c @flow -l "$SANDBOX/old/flow"
+  run "$FLOWRUN" -c @flow -l "$SANDBOX/old/flow"
   assert_rc 0
   assert_contains "$OUT" "  OPM version  2024.10"
   assert_contains "$OUT" "  Git hash     deadbee* (built with local changes)"
@@ -160,7 +160,7 @@ test_build_info_of_older_flow_from_its_log_header() {
 
 test_build_info_of_flow_with_version_only() {
   fake_old_flow "$SANDBOX/older/flow" 2019.04
-  run "$OPMEXEC" -c @flow -l "$SANDBOX/older/flow"
+  run "$FLOWRUN" -c @flow -l "$SANDBOX/older/flow"
   assert_rc 0
   assert_contains "$OUT" "  OPM version  2019.04"
   assert_contains "$OUT" "  Git hash     -"
@@ -170,18 +170,18 @@ test_build_info_of_flow_with_version_only() {
 test_build_type_fallbacks() {
   # From the configuration directory of a multi-config build tree
   fake_old_flow "$SANDBOX/tree/bin/RelWithDebInfo/flow" 2025.04 abc "2025-04-01 at 10:00:00"
-  run "$OPMEXEC" -c @flow -l "$SANDBOX/tree/bin/RelWithDebInfo/flow"
+  run "$FLOWRUN" -c @flow -l "$SANDBOX/tree/bin/RelWithDebInfo/flow"
   assert_contains "$OUT" "  Build type   RelWithDebInfo"
 
   # From the CMakeCache.txt of a single-config build tree
   fake_old_flow "$SANDBOX/single/bin/flow" 2025.04 abc "2025-04-01 at 10:00:00"
   echo "CMAKE_BUILD_TYPE:STRING=Release" > "$SANDBOX/single/CMakeCache.txt"
-  run "$OPMEXEC" -c @flow -l "$SANDBOX/single/bin/flow"
+  run "$FLOWRUN" -c @flow -l "$SANDBOX/single/bin/flow"
   assert_contains "$OUT" "  Build type   Release"
 
   # OPM's Debug builds write the hash "debug"
   fake_old_flow "$SANDBOX/dbg/flow" 2025.04 debug "2025-04-01 at 10:00:00"
-  run "$OPMEXEC" -c @flow -l "$SANDBOX/dbg/flow"
+  run "$FLOWRUN" -c @flow -l "$SANDBOX/dbg/flow"
   assert_contains "$OUT" "  Build type   Debug"
 }
 
@@ -189,11 +189,11 @@ test_list_shows_named_versions_and_builds() {
   mkdir -p "$SANDBOX/rel"
   cp "$SANDBOX/bin/flowtest" "$SANDBOX/rel/flow"
   fake_old_flow "$SANDBOX/old/flow" 2024.10 "deadbee" "2024-10-30 at 12:00:00"
-  printf '%s\n' "OPMEXEC_FLOW_VERSIONS=('dev=$SANDBOX/rel' 'old=$SANDBOX/old' 'gone=/nowhere/flow')" >> "$OPMEXEC_CONFIG"
-  run "$OPMEXEC" -c @flow -l
+  printf '%s\n' "FLOWRUN_FLOW_VERSIONS=('dev=$SANDBOX/rel' 'old=$SANDBOX/old' 'gone=/nowhere/flow')" >> "$FLOWRUN_CONFIG"
+  run "$FLOWRUN" -c @flow -l
   assert_rc 0
   assert_contains "$OUT" "  NAME      VERSION  HASH     TYPE     BUILT                PYTHON"
-  assert_contains "$OUT" "Named versions (OPMEXEC_FLOW_VERSIONS)"
+  assert_contains "$OUT" "Named versions (FLOWRUN_FLOW_VERSIONS)"
   # (the test configuration's Python map knows flow* names only: "?")
   [[ "$OUT" =~ "  dev       2099.10  abc1234  Release  2099-01-02 03:04:05  ?"\ +"$SANDBOX/rel/flow" ]] || fail "dev row"
   [[ "$OUT" =~ "  old       2024.10  deadbee  -        2024-10-30 12:00:00  ?"\ +"$SANDBOX/old/flow" ]] || fail "old row"
@@ -205,17 +205,17 @@ test_list_shows_named_versions_and_builds() {
 # --- The record of the build a run used ---
 
 test_run_records_the_build() {
-  run "$OPMEXEC" -c @flow A.DATA
+  run "$FLOWRUN" -c @flow A.DATA
   assert_rc 0
   assert_contains "$OUT" "[INFO] @flow: flow flowtest: $SANDBOX/bin/flowtest (OPM 2099.10)"
 
-  run "$OPMEXEC" --dry-run -c @flow A.DATA
+  run "$FLOWRUN" --dry-run -c @flow A.DATA
   assert_contains "$OUT" "[DRY-RUN] flow flowtest: $SANDBOX/bin/flowtest (OPM 2099.10)"
 }
 
 test_job_log_records_the_build() {
   require_localq
-  run "$OPMEXEC" -c @wait @submit -o "$PWD/out.log" @mpi -n 1 @flow A.DATA
+  run "$FLOWRUN" -c @wait @submit -o "$PWD/out.log" @mpi -n 1 @flow A.DATA
   assert_rc 0
   assert_file_contains out.log "[INFO] @flow: flow flowtest: $SANDBOX/bin/flowtest (OPM 2099.10)"
 }

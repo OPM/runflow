@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# opmexec test suite - plain bash, no dependencies.
+# flowrun test suite - plain bash, no dependencies.
 #
 # Usage: tests/run_tests.sh [PATTERN]
 #   PATTERN        run only tests whose "file:function" contains it
@@ -14,7 +14,7 @@ set -o pipefail
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Sandboxes go in TMPDIR, without trailing slashes: macOS sets TMPDIR to
-# /var/folders/.../T/, and tests compare paths as text with what opmexec
+# /var/folders/.../T/, and tests compare paths as text with what flowrun
 # prints, which never has "//" (directories are made absolute with pwd)
 TMPDIR=${TMPDIR:-/tmp}
 while [[ "$TMPDIR" == */ && "$TMPDIR" != / ]]; do TMPDIR=${TMPDIR%/}; done
@@ -49,7 +49,7 @@ interrupted() {
     kill -TERM "$test_pid" 2> /dev/null
     wait "$test_pid" 2> /dev/null
     teardown_sandbox "$sandbox"
-    [[ "$sandbox" != "$TMPDIR"/opmexec-test.* ]] || rm -rf -- "$sandbox"
+    [[ "$sandbox" != "$TMPDIR"/flowrun-test.* ]] || rm -rf -- "$sandbox"
   fi
   echo
   echo "interrupted: $passed passed, $failed failed, $skipped skipped so far"
@@ -62,7 +62,7 @@ if [[ -z "$TIMEOUT" ]]; then
   exit 1
 fi
 
-echo "opmexec tests (scheduler: $TEST_SCHEDULER)"
+echo "flowrun tests (scheduler: $TEST_SCHEDULER)"
 
 for file in "$TESTS_DIR"/test_*.sh; do
   name=$(basename "$file")
@@ -77,7 +77,7 @@ for file in "$TESTS_DIR"/test_*.sh; do
       header_done=true
     fi
 
-    sandbox=$(mktemp -d "$TMPDIR/opmexec-test.XXXXXX")
+    sandbox=$(mktemp -d "$TMPDIR/flowrun-test.XXXXXX")
     start=$(now)
 
     # In the background, so that the trap above runs at once on Ctrl-C (bash
@@ -115,7 +115,7 @@ for file in "$TESTS_DIR"/test_*.sh; do
 
     if [[ "$rc" != 0 && "$rc" != 77 && -n "${KEEP_FAILED:-}" ]]; then
       echo "        sandbox kept: $sandbox"
-    elif [[ "$sandbox" == "$TMPDIR"/opmexec-test.* ]]; then
+    elif [[ "$sandbox" == "$TMPDIR"/flowrun-test.* ]]; then
       rm -rf -- "$sandbox"
     fi
   done
