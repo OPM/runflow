@@ -14,8 +14,8 @@ _FLOWRUN_CLI=true  # workflow mode is turned on below, after the options
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/flowrun.sh" || exit 1
 
 flowrun::cli_help() {
+  echo "flowrun $_FLOWRUN_VERSION - the execution environment for OPM (Open Porous Media)"
   cat << 'HELP_EOF'
-flowrun - the execution environment for OPM (Open Porous Media)
 
 Usage: flowrun [OPTIONS] script [args...]
        flowrun [OPTIONS] -c command [args...]
@@ -55,6 +55,8 @@ OPTIONS:
   --jobs[=all]              List pending/running jobs (all: include finished)
   --library                 Print the library's path (source "$(flowrun --library)");
                             must be the first argument
+  --version                 Print flowrun's version (with its Git commit, in a
+                            checkout that is not exactly a release)
   -h, --help                Show this help message
 
 Options given to @submit (-n, -q, --scheduler, --depends-on,
@@ -106,6 +108,10 @@ flowrun::cli_main() {
         ;;
       -h|--help)
         flowrun::cli_help
+        exit 0
+        ;;
+      --version)
+        echo "flowrun $(flowrun::version)"
         exit 0
         ;;
       --)

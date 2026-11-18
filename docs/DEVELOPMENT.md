@@ -7,6 +7,8 @@ For using flowrun see `man flowrun` ([man/man1/flowrun.1](../man/man1/flowrun.1)
 
 ```
 flowrun                      CLI: parses options, then runs a script or command
+VERSION                      flowrun's version, the one place it is written (see RELEASES)
+CHANGELOG.md                 what changed in each version
 flowrun.bash                 for "source flowrun.bash" (found through PATH): loads lib/flowrun.sh
 lib/flowrun.sh               core: module loading, flowrun::setup, workflow mode, helpers
 lib/common.sh                bash version check, configuration loading, messages
@@ -175,6 +177,24 @@ Rocky Linux 8 has bash 4.4, the oldest supported.
 - **Checks before a change is done:** `bash -n` on every script; the full test
   suite; the stress test for localq changes.
 
+## RELEASES
+
+The version is in the `VERSION` file, the one place it is written; flowrun
+reads it for `--version`, `-h` and its debug output. Versions follow semantic
+versioning (`CHANGELOG.md` says what each part means for users). Every change
+users notice gets a line under **Unreleased** in `CHANGELOG.md`, as it is made.
+
+To release, e.g. 0.2.0:
+
+1. In `CHANGELOG.md`, rename **Unreleased** to `[0.2.0] - YYYY-MM-DD`, and
+   start a new, empty **Unreleased** above it.
+2. Write `0.2.0` into `VERSION`.
+3. Commit, and tag the commit `v0.2.0` (`git tag -a v0.2.0 -m "flowrun 0.2.0"`):
+   checkouts then report how far they are from the release.
+
+A test checks that `VERSION` is `MAJOR.MINOR.PATCH`, that `CHANGELOG.md` has
+its section, and that `flowrun --version` prints it.
+
 ## EXTENDING
 
 | Task | Read |
@@ -182,3 +202,4 @@ Rocky Linux 8 has bash 4.4, the oldest supported.
 | a new directive | [DIRECTIVES.md](DIRECTIVES.md) |
 | a new scheduler | [BACKENDS.md](BACKENDS.md) |
 | status, limitations, planned work | [ROADMAP.md](../ROADMAP.md) |
+| what changed in each version | [CHANGELOG.md](../CHANGELOG.md) |

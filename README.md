@@ -50,6 +50,7 @@ Missing tools are reported when flowrun starts.
 **Check the installation:**
 
 ```bash
+flowrun --version                        # which flowrun this is (CHANGELOG.md: what is in it)
 flowrun -c @flow -l                      # the Flow versions found, with their build and Python
 flowrun -c @wait @submit echo ok         # a job in the local queue
 flowrun --jobs=all                       # the jobs, also finished ones
@@ -138,6 +139,7 @@ it even without the `PATH` and `MANPATH` lines above.
 | [docs/BACKENDS.md](docs/BACKENDS.md) | adding a scheduler, running on clusters |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | developing flowrun: layout, tests, conventions |
 | [ROADMAP.md](ROADMAP.md) | status and known limitations |
+| [CHANGELOG.md](CHANGELOG.md) | what changed in each version (`flowrun --version`: which you have) |
 
 ## License
 

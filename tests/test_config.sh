@@ -7,7 +7,7 @@
 # FLOWRUN_CONFIG: the files are searched
 use_installation_copy() {
   mkdir -p "$SANDBOX/install/etc"
-  cp -r "$ROOT/flowrun" "$ROOT/flowrun.bash" "$ROOT/lib" "$SANDBOX/install/"
+  cp -r "$ROOT/flowrun" "$ROOT/flowrun.bash" "$ROOT/lib" "$ROOT/VERSION" "$SANDBOX/install/"
   cp -r "$ROOT/etc/defaults" "$SANDBOX/install/etc/"
   FLOWRUN="$SANDBOX/install/flowrun"
   unset FLOWRUN_CONFIG

@@ -9,6 +9,24 @@ test_help_lists_directives_and_options() {
   done
 }
 
+test_version_is_the_release_and_in_the_changelog() {
+  # The VERSION file is the one source: --version and -h print it, and
+  # CHANGELOG.md has its section. A copy without Git history, as installed
+  # from a release, prints the version alone.
+  local version
+  read -r version < "$ROOT/VERSION"
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "VERSION is not MAJOR.MINOR.PATCH: $version"
+  grep -q "^## \[$version\] - " "$ROOT/CHANGELOG.md" || fail "CHANGELOG.md has no section for $version"
+
+  mkdir -p "$SANDBOX/install"
+  cp -r "$ROOT/flowrun" "$ROOT/lib" "$ROOT/etc" "$ROOT/VERSION" "$SANDBOX/install/"
+  run "$SANDBOX/install/flowrun" --version
+  assert_rc 0
+  assert_eq "$OUT" "flowrun $version"
+  run "$SANDBOX/install/flowrun" -h
+  assert_contains "$OUT" "flowrun $version - the execution environment for OPM"
+}
+
 test_unknown_option_fails() {
   run "$FLOWRUN" --bogus
   assert_rc 1

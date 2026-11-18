@@ -23,8 +23,29 @@ fi
 
 FLOWRUN_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# flowrun's version: the VERSION file, which each release changes (semantic
+# versioning, see CHANGELOG.md)
+read -r _FLOWRUN_VERSION 2> /dev/null < "$FLOWRUN_HOME/VERSION" || _FLOWRUN_VERSION=unknown
+
 source "$FLOWRUN_HOME/lib/common.sh" || return 1
 source "$FLOWRUN_HOME/lib/config.sh" || return 1
+flowrun::debug "flowrun $_FLOWRUN_VERSION ($FLOWRUN_HOME)"
+
+# flowrun's version, and for a Git checkout that is not exactly the release,
+# where it is: "0.1.0", or e.g. "0.1.0 (git v0.1.0-3-g842f3b2-modified)"
+# (3 commits after the release's tag, with local changes). Git is asked only
+# here: flowrun --version.
+flowrun::version() {
+  local described=""
+  if [[ -e "$FLOWRUN_HOME/.git" ]] && command -v git > /dev/null; then
+    described=$(git -C "$FLOWRUN_HOME" describe --tags --always --dirty=-modified --match 'v[0-9]*' 2> /dev/null)
+  fi
+  if [[ -z "$described" || "$described" == "v$_FLOWRUN_VERSION" ]]; then
+    echo "$_FLOWRUN_VERSION"
+  else
+    echo "$_FLOWRUN_VERSION (git $described)"
+  fi
+}
 
 # Track submitted jobs in current session. A file (not an array) so that jobs
 # submitted from subshells, e.g. job=$(@submit ...), are tracked too.
