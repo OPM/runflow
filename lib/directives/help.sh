@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # @help - list the directives, or show one directive's help (core directive)
 
 flowrun::directive help "[@DIRECTIVE]" "List the directives, or show the options of one"

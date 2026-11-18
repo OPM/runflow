@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # localq stress test: many short jobs with random slot needs.
 # Checks that every job runs exactly once and completes, that the slots in
 # use never exceed FLOWRUN_LOCALQ_SLOTS, and reports throughput.

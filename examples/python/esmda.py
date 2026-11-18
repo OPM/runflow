@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 """The update of an ensemble history match (ES-MDA, Emerick and Reynolds
 2013), for examples/6_history_match.sh. Parameters: one line per member, its
 log10 multipliers. Data: the producer's bottom-hole pressure, GOR and oil

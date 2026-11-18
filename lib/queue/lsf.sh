@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # LSF backend: planned. This skeleton lists the interface to implement (see
 # docs/BACKENDS.md); flowrun does not load it while lsf is in
 # _FLOWRUN_PLANNED_SCHEDULERS (lib/config.sh).

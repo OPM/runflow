@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # localq - slim local scheduler (single host, per user)
 #
 # Each job runs as a detached process group whose runner (localq_runner.sh)

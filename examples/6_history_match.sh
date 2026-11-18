@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Calibrate a model to observed data: an ensemble history match (ES-MDA).
 # Each iteration runs every member at once, waits, and updates the members
 # from how well they fit (examples/python/esmda.py).

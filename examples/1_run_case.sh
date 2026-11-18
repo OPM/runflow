@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Run a case on this machine with MPI, then read how much oil it produced.
 # New here: @mpi @flow runs Flow on several MPI ranks (flowrun -n); @flowpy
 # runs Python with Flow's opm bindings to read the results.

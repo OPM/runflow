@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # flowrun core library. Three ways to use it:
 #   flowrun [OPTIONS] script.sh        run a workflow script
 #   flowrun [OPTIONS] -c @directive    run one command

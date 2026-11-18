@@ -44,6 +44,7 @@ SLURM and PBS backends are planned (`--dry-run -s slurm` shows their jobs).
 - **Examples:** six reservoir engineering workflows on SPE1 and SPE9.
 - **Documentation:** `man flowrun`, and docs/ for Flow versions, writing
   directives, backends and development.
+- **License:** GPL-3.0-or-later, as OPM's.
 - **Tests** on Ubuntu, macOS, Rocky Linux 8–10, Debian 12–13, Ubuntu 22.04
   and openSUSE Leap 15.6, and with real Flow from Debian's and OPM's
   packages.

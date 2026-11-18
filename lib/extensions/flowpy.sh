@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # @flowpy - run the Python of a Flow version, with its opm bindings (bundled
 # extension; a later directory in FLOWRUN_DIRECTIVE_PATH may replace it).
 # Uses the flowrun::flow:: helpers of the @flow extension (flow.sh): the

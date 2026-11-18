@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # @mpi: MPI launcher per scheduler, launcher options, plain commands
 
 # Append settings to the sandbox configuration

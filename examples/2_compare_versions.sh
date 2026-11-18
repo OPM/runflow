@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Does another Flow version change the results? Run the same case with two
 # versions, one after the other, and compare a few summary vectors: PASS or
 # FAIL.

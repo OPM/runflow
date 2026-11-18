@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # The rc file of flowrun --shell: an interactive bash with the user's own
 # ~/.bashrc, then the directives. The options given to flowrun --shell arrive
 # as exported settings (see flowrun::setup_option), which the configuration

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # The three ways to use flowrun: script, inline command, sourcing the library
 
 # A workflow that sources the library itself (mode 3)

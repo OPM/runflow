@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # @mpi - run a program or launchable directive with MPI (core directive)
 
 flowrun::directive mpi "[-n NP] [-o LAUNCHER_OPTIONS] command|@directive ..." \

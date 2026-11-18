@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Directive validation: unknown directives stop the workflow
 
 test_unknown_directive_stops_workflow() {

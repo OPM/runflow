@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Queue directives (@submit, @wait @submit, @wait, @cancel), job IDs and dependencies.
 # Backend-agnostic: runs against TEST_SCHEDULER.
 

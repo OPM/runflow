@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # CLI: modes, options and errors
 
 test_help_lists_directives_and_options() {
@@ -25,6 +27,23 @@ test_version_is_the_release_and_in_the_changelog() {
   assert_eq "$OUT" "flowrun $version"
   run "$SANDBOX/install/flowrun" -h
   assert_contains "$OUT" "flowrun $version - the execution environment for OPM"
+}
+
+test_source_files_carry_the_license_header() {
+  # Every script, library file, example, the man page and the defaults
+  # start with the license and copyright (after a #! line): see README.md
+  local file missing=() files=(
+    "$ROOT/flowrun" "$ROOT/flowrun.bash" "$ROOT"/lib/*.sh "$ROOT"/lib/*/*.sh
+    "$ROOT"/tests/*.sh "$ROOT"/examples/*.sh "$ROOT"/examples/python/*.py
+    "$ROOT"/.github/ci/*.sh "$ROOT"/etc/defaults/*.conf "$ROOT"/man/man1/*.1
+  )
+  for file in "${files[@]}"; do
+    [[ -f "$file" ]] || continue
+    head -n 3 "$file" | grep -q 'SPDX-License-Identifier: GPL-3.0-or-later' &&
+      head -n 3 "$file" | grep -q 'Copyright (C) [0-9-]* OPM-OP AS' ||
+      missing+=("${file#"$ROOT"/}")
+  done
+  [[ ${#missing[@]} -eq 0 ]] || fail "no license header: ${missing[*]}"
 }
 
 test_unknown_option_fails() {

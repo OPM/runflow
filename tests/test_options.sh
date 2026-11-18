@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Native scheduler options (--<scheduler>-options)
 
 test_scheduler_options_apply_per_scheduler() {

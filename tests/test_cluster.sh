@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # What jobs need on another host: workflow settings passed explicitly, job setup
 
 saved_command() {

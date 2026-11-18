@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Helpers for flowrun tests, sourced in each test's own bash process.
 # Each test runs in a sandbox: its own HOME, config, fake Flow and work dir.
 

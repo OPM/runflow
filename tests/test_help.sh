@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Help for directives: @help (the only help of a directive), declared options
 # (also used by Tab completion), and the man page covering them
 

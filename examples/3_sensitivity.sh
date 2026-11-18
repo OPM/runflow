@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Which uncertain parameter matters most for recovery? Run the case with each
 # grid property scaled down and up, all runs at once, then compare the oil
 # produced against the base case.

@@ -9,6 +9,7 @@ For using flowrun see `man flowrun` ([man/man1/flowrun.1](../man/man1/flowrun.1)
 flowrun                      CLI: parses options, then runs a script or command
 VERSION                      flowrun's version, the one place it is written (see RELEASES)
 CHANGELOG.md                 what changed in each version
+LICENSE                      the GNU GPL, version 3 (flowrun: version 3 or later, see README.md)
 flowrun.bash                 for "source flowrun.bash" (found through PATH): loads lib/flowrun.sh
 lib/flowrun.sh               core: module loading, flowrun::setup, workflow mode, helpers
 lib/common.sh                bash version check, configuration loading, messages
@@ -153,6 +154,10 @@ Rocky Linux 8 has bash 4.4, the oldest supported.
   step ignores further signals (signals often arrive in twos), and keeps
   per-run state that is harmless if left behind: each run reads only its own
   session file, and the next run on the host removes those of ended runs.
+- **License header:** every script, library file and example starts (after
+  its `#!` line) with
+  `# SPDX-License-Identifier: GPL-3.0-or-later` and
+  `# Copyright (C) YEAR OPM-OP AS`; a test checks it.
 - **Library side effects:** the library must not change the shell's options
   (no `set -o pipefail`) or traps outside workflow mode.
 - **Output:** stdout carries data (job IDs, listings). Messages go to stderr

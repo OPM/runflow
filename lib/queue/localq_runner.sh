@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # localq job runner: waits for its turn, runs the job, records the result
 # Usage: localq_runner.sh JOBDIR command [args...]  (started by flowrun::backend_submit_job)
 

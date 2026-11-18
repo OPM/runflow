@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # The examples: dry runs with small stand-in decks (just the keywords the
 # examples edit), the decks they derive, and optionally real runs:
 #   TEST_FLOW=/path/to/flow [TEST_FLOWPY=/path/to/flow-with-python]

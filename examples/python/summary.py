@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 """Print a summary vector of one or more runs: its last value and, for a rate,
 its total over the run. Relative changes are against the first run.
 With --compare TOL: PASS if every run agrees with the first within TOL

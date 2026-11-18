@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # --dry-run: check workflows without submitting or running anything
 
 test_dry_run_submits_and_runs_nothing() {

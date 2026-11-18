@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # localq local queue: scheduling, slots, failures and listing
 
 test_localq_fifo_and_slots() {

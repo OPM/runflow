@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Interactive use: flowrun --shell, sourcing at a prompt, safety, the prompt
 # marker, job notifications and tab completion. The shells read their commands
 # from stdin (bash -i without a terminal warns about job control; ignored).

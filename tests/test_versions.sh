@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Flow versions: named versions, selection by OPM version, build information
 # (flow --build-info, or the fallbacks for older Flow), and the record of the
 # build a run used

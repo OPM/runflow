@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # @wait: blocking without polling (localq), timeouts, and the polling fallback
 # for backends without flowrun::backend_wait_job
 

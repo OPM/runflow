@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # The Python of a Flow version: detection, @flowpy, and @flow's PYTHONPATH
 
 # Fake tools in front of PATH: ldd prints a fake Flow's "# LDD: " lines (its

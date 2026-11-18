@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # flowrun - the execution environment for OPM: run a workflow script or a
 # single command with the flowrun directives. Scripts can also load them with:
 # source flowrun.bash

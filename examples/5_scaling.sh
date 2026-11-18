@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # How many cores should I ask for? Run the same case on more and more MPI
 # ranks, one after another (so that the runs do not compete), then compare
 # Flow's own simulation times.

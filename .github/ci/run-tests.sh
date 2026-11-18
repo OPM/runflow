@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # CI: install what the tests need, then run them as an ordinary user.
 #
 #   run-tests.sh            set up, then run (Linux: as root in a container;

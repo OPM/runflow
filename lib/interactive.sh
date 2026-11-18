@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 OPM-OP AS
 # Interactive shells: a prompt marker, job notifications and tab completion.
 # Loaded by lib/flowrun.sh when the shell is interactive: flowrun --shell, or
 # source flowrun.bash at a prompt. No traps are set and nothing exits the
